@@ -23,7 +23,7 @@
       user-select: none; -webkit-user-select: none;
       overscroll-behavior: none;
     }
-    #app-root { width: 100vw; height: 100vh; height: 100dvh; }
+    #app-root { width: 100vw; height: 100vh; height: 100dvh; position: relative; overflow: hidden; }
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
@@ -40,25 +40,20 @@
       const manifest = {
         name: 'Disco Music Discovery',
         short_name: 'Disco',
-        description: 'TikTok-style music discovery on real track previews',
         start_url: window.location.origin + window.location.pathname,
-        scope: window.location.origin + '/',
         display: 'standalone',
-        orientation: 'portrait',
         background_color: '#000000',
         theme_color: '#000000',
         icons: [{ src: iconUrl, sizes: '192x192', type: 'image/svg+xml', purpose: 'any maskable' }]
       };
 
       const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
-      const manifestUrl = URL.createObjectURL(blob);
-
       const link = document.createElement('link');
       link.rel = 'manifest';
-      link.href = manifestUrl;
+      link.href = URL.createObjectURL(blob);
       document.head.appendChild(link);
 
-      console.log('%c[Disco] v6.1 — Smooth Swipe Physics', 'color:#1DB954;font-weight:bold');
+      console.log('%c[Disco] v7.0 — Strict Grid Layout', 'color:#1DB954;font-weight:bold');
     })();
   </script>
 </head>
@@ -137,12 +132,12 @@
         this.shadowRoot.innerHTML = `
           <style>
             :host { display: flex; flex-direction: column; align-items: center; cursor: pointer; }
-            .btn { width: 52px; height: 52px; border-radius: 50%; background: rgba(40,40,40,.6); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); display: flex; align-items: center; justify-content: center; transition: transform .15s ease; }
-            :host(:active) .btn { transform: scale(.9); background: rgba(60,60,60,.8); }
-            .count { font-size: 13px; font-weight: 600; margin-top: 6px; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,.5); }
-            svg { transition: fill .2s ease; filter: drop-shadow(0 2px 4px rgba(0,0,0,.3)); }
+            .btn { width: 48px; height: 48px; border-radius: 50%; background: rgba(30,30,30,.5); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; transition: transform .15s ease; }
+            :host(:active) .btn { transform: scale(.9); background: rgba(50,50,50,.8); }
+            .count { font-size: 12px; font-weight: 600; margin-top: 6px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
+            svg { filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
           </style>
-          <div class="btn">${svg(icon, 24, color)}</div>
+          <div class="btn">${svg(icon, 22, color)}</div>
           <span class="count">${count}</span>`;
       }
     }
@@ -161,13 +156,16 @@
         const g = this.getAttribute('tag') || '';
         this.shadowRoot.innerHTML = `
           <style>
-            :host { display: flex; flex-direction: column; gap: 6px; color: #fff; text-shadow: 0 2px 5px rgba(0,0,0,.6); }
-            .title { font-size: 26px; font-weight: 800; letter-spacing: -.5px; line-height: 1.1; }
-            .artist { font-size: 16px; font-weight: 500; color: rgba(255,255,255,.9); }
-            .album { font-size: 14px; color: rgba(255,255,255,.6); font-weight: 400; margin-top: -2px; }
-            .tag { align-self: flex-start; font-size: 12px; font-weight: 600; background: rgba(255,255,255,.2); padding: 4px 10px; border-radius: 12px; margin-top: 6px; backdrop-filter: blur(5px); }
+            :host { display: flex; flex-direction: column; gap: 4px; color: #fff; text-shadow: 0 2px 5px rgba(0,0,0,.7); width: 100%; }
+            .title { font-size: 24px; font-weight: 800; letter-spacing: -.5px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .artist { font-size: 15px; font-weight: 500; color: rgba(255,255,255,.9); }
+            .album { font-size: 13px; color: rgba(255,255,255,.6); font-weight: 400; margin-top: -2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .tag { align-self: flex-start; font-size: 11px; font-weight: 600; background: rgba(255,255,255,.2); padding: 3px 8px; border-radius: 10px; margin-top: 6px; backdrop-filter: blur(5px); }
           </style>
-          <div class="title">${t}</div><div class="artist">${a}</div><div class="album">${al}</div><div class="tag">#${g}</div>`;
+          <div class="title">${t}</div>
+          <div class="artist">${a}</div>
+          <div class="album">${al}</div>
+          <div class="tag">#${g}</div>`;
       }
     }
     customElements.define('track-info', TrackInfo);
@@ -206,9 +204,8 @@
             <div class="header"><span>Комментарии</span><div class="close">${svg('close', 20, '#888')}</div></div>
             <div class="body">
               <div class="comment"><div class="avatar">M</div><div class="c-body"><div class="c-author">MusicLover</div><div class="c-text">Этот трек просто пушка! 🔥</div></div></div>
-              <div class="comment"><div class="avatar">A</div><div class="c-body"><div class="c-author">Alex</div><div class="c-text">Идеально для вечерней поездки.</div></div></div>
             </div>
-            <div class="input-bar"><input type="text" placeholder="Добавить комментарий..." maxlength="100"><button class="send">Отправить</button></div>
+            <div class="input-bar"><input type="text" placeholder="Добавить..." maxlength="100"><button class="send">Отправить</button></div>
           </div>`;
         const $ = s => this.shadowRoot.querySelector(s);
         $('.close').onclick = () => this._close();
@@ -245,7 +242,7 @@
     }
     customElements.define('comments-sheet', CommentsSheet);
 
-    // --- ОРГАНИЗМ: Карточка трека ---
+    // --- ОРГАНИЗМ: Карточка (ИСПРАВЛЕНА ВЕРСТКА) ---
     class TrackCard extends HTMLElement {
       constructor() {
         super();
@@ -260,52 +257,78 @@
         this._wire();
       }
       _fmt(n) { return n >= 1000 ? (n / 1000).toFixed(1) + 'K' : n; }
+      
       _render() {
         const d = this._data;
         const displayLikes = this._fmt((d.likeCount || 0) + (this._liked ? 1 : 0));
+        
         this.shadowRoot.innerHTML = `
           <style>
-            :host { display: block; position: relative; width: 100vw; height: 100vh; height: 100dvh; overflow: hidden; background: #000; }
-            .bg { position: absolute; inset: -50px; background: url('${d.image}') center/cover; filter: blur(80px) brightness(.4) saturate(1.5); transform: scale(1.2); z-index: 1; }
-            .gradient-overlay { position: absolute; inset: 0; z-index: 2; background: linear-gradient(to bottom, rgba(0,0,0,0) 40%, rgba(0,0,0,.8) 100%); }
-            .content { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; justify-content: space-between; padding: 100px 24px calc(30px + env(safe-area-inset-bottom)); }
-            .center-zone { flex: 1; display: flex; align-items: center; justify-content: center; margin-bottom: 40px; }
-            .cover { width: 80vw; max-width: 340px; aspect-ratio: 1; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.1); object-fit: cover; animation: coverIn .6s cubic-bezier(.16,1,.3,1); }
-            @keyframes coverIn { from { opacity: 0; transform: scale(.9) translateY(20px); } to { opacity: 1; transform: none; } }
-            .bottom-layout { display: flex; justify-content: space-between; align-items: flex-end; }
-            .info-zone { flex: 1; min-width: 0; padding-right: 20px; }
-            .sidebar-zone { display: flex; flex-direction: column; gap: 20px; align-items: center; }
-            .store-btn { display: inline-flex; align-items: center; gap: 8px; background: #fff; color: #000; text-decoration: none; padding: 12px 20px; border-radius: 30px; font-size: 14px; font-weight: 700; margin-top: 16px; box-shadow: 0 4px 15px rgba(255,255,255,.15); transition: transform .15s; }
-            .store-btn:active { transform: scale(.96); }
-            audio-progress-bar { position: absolute; bottom: 0; left: 0; right: 0; z-index: 4; }
+            :host { display: block; position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+            
+            /* Фон */
+            .bg { position: absolute; inset: -20px; background: url('${d.image}') center/cover; filter: blur(40px) brightness(.35) saturate(1.2); transform: scale(1.1); z-index: 0; }
+            .gradient { position: absolute; inset: 0; z-index: 1; background: linear-gradient(to bottom, rgba(0,0,0,.2) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,.85) 100%); }
+            
+            /* Сетка контента */
+            .content { 
+              position: absolute; inset: 0; z-index: 2; 
+              display: flex; flex-direction: column; 
+              padding: 80px 20px calc(20px + env(safe-area-inset-bottom)); 
+            }
+            
+            /* Обложка */
+            .center { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; padding: 20px 0; }
+            .cover { max-width: 100%; max-height: 100%; aspect-ratio: 1; border-radius: 16px; box-shadow: 0 15px 40px rgba(0,0,0,.5); object-fit: cover; }
+            
+            /* Низ */
+            .bottom { display: flex; justify-content: space-between; align-items: flex-end; width: 100%; gap: 16px; }
+            .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+            .sidebar { display: flex; flex-direction: column; gap: 20px; align-items: center; flex-shrink: 0; }
+            
+            .store { display: inline-flex; align-items: center; gap: 6px; background: #fff; color: #000; text-decoration: none; padding: 10px 16px; border-radius: 20px; font-size: 13px; font-weight: 700; width: fit-content; }
+            
+            audio-progress-bar { position: absolute; bottom: 0; left: 0; right: 0; z-index: 3; }
           </style>
-          <div class="bg"></div><div class="gradient-overlay"></div>
+          
+          <div class="bg"></div>
+          <div class="gradient"></div>
+          
           <div class="content">
-            <div class="center-zone"><img class="cover" src="${d.image}" alt="cover"></div>
-            <div class="bottom-layout">
-              <div class="info-zone">
+            <div class="center">
+              <img class="cover" src="${d.image}" alt="cover">
+            </div>
+            
+            <div class="bottom">
+              <div class="info">
                 <track-info title="${d.name}" artist="${d.artist}" album="${d.album}" tag="${d.genres[0] || 'Music'}"></track-info>
-                <a class="store-btn" href="${d.storeUrl}" target="_blank">${svg('external', 16, '#000')} Слушать полностью</a>
+                <a class="store" href="${d.storeUrl}" target="_blank">${svg('external', 14, '#000')} Слушать полностью</a>
               </div>
-              <div class="sidebar-zone">
+              
+              <div class="sidebar">
                 <action-button icon="heart" count="${displayLikes}" data-action="like" ${this._liked ? 'active' : ''}></action-button>
                 <action-button icon="comment" count="154" data-action="comment"></action-button>
                 <action-button icon="share" count="" data-action="share"></action-button>
               </div>
             </div>
           </div>
+
           <audio-stream src="${d.previewUrl}"></audio-stream>
           <audio-progress-bar></audio-progress-bar>`;
+          
         const sheet = document.createElement('comments-sheet');
         sheet.setAttribute('opened', 'false');
         this.shadowRoot.appendChild(sheet);
       }
+      
       _wire() {
         const $ = s => this.shadowRoot.querySelector(s);
         const audio = $('audio-stream'); const bar = $('audio-progress-bar');
         const sheet = $('comments-sheet'); const likeBtn = $('[data-action="like"]');
         const commentBtn = $('[data-action="comment"]'); const shareBtn = $('[data-action="share"]');
+        
         audio.addEventListener('time-updated', e => { bar.style.width = `${(e.detail.currentTime / e.detail.duration) * 100}%`; });
+        
         likeBtn.addEventListener('click', () => {
           this._liked = !this._liked;
           if (this._liked) likeBtn.setAttribute('active', ''); else likeBtn.removeAttribute('active');
@@ -314,6 +337,7 @@
           localStorage.setItem('disco_likes', JSON.stringify(likes));
           likeBtn.setAttribute('count', this._fmt((this._data.likeCount || 0) + (this._liked ? 1 : 0)));
         });
+        
         commentBtn.addEventListener('click', () => { sheet.setAttribute('opened', 'true'); this.setAttribute('sheet-open', ''); audio.fade(1, .1, 300); });
         sheet.addEventListener('sheet-closed', () => { sheet.setAttribute('opened', 'false'); this.removeAttribute('sheet-open'); audio.fade(.1, 1, 300); });
         shareBtn.addEventListener('click', async () => {
@@ -321,33 +345,33 @@
           else { navigator.clipboard.writeText(this._data.storeUrl); alert('Ссылка скопирована!'); }
         });
       }
+      
       async play() { const a = this.shadowRoot.querySelector('audio-stream'); if (a) await a.play(); }
       reset() { const a = this.shadowRoot.querySelector('audio-stream'); if (a) a.reset(); }
       isSheetOpen() { return this.hasAttribute('sheet-open'); }
     }
     customElements.define('track-card', TrackCard);
 
-    // --- ШАБЛОН: Лента (Обновленная физика свайпа) ---
+    // --- ШАБЛОН: Лента (ИСПРАВЛЕНА ФИЗИКА СВАЙПА) ---
     class DiscoveryFeed extends HTMLElement {
       constructor() {
         super();
         this.attachShadow({ mode: 'open' });
         this.activeIndex = 0; this.tracks = []; this.cards = [];
-        this._startY = 0; 
-        this._curY = 0; 
-        this._swiping = false; 
-        this._unlocked = false;
-        this._startTime = 0; // Для расчета скорости
+        this._startY = 0; this._curY = 0; this._swiping = false; this._unlocked = false;
+        this._startTime = 0;
+        this._cardHeight = 0; // Жесткая высота карточки
       }
+      
       connectedCallback() {
         this.shadowRoot.innerHTML = `
           <style>
-            :host { display: block; width: 100vw; height: 100vh; height: 100dvh; overflow: hidden; position: relative; background: #000; }
+            :host { display: block; position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
             .wrapper { width: 100%; height: 100%; position: relative; will-change: transform; touch-action: none; }
-            .hud { position: absolute; top: 0; left: 0; right: 0; padding: calc(16px + env(safe-area-inset-top)) 24px 16px; display: flex; justify-content: space-between; align-items: center; z-index: 10; pointer-events: none; background: linear-gradient(to bottom, rgba(0,0,0,.5), transparent); }
-            .brand { font-size: 22px; font-weight: 800; letter-spacing: -.5px; display: flex; align-items: center; gap: 8px; }
-            .dot { width: 12px; height: 12px; border-radius: 50%; background: #1DB954; box-shadow: 0 0 12px #1DB954; }
-            .tabs { display: flex; gap: 24px; font-size: 15px; font-weight: 600; }
+            .hud { position: absolute; top: 0; left: 0; right: 0; padding: calc(16px + env(safe-area-inset-top)) 20px 16px; display: flex; justify-content: space-between; align-items: center; z-index: 10; pointer-events: none; }
+            .brand { font-size: 22px; font-weight: 800; letter-spacing: -.5px; display: flex; align-items: center; gap: 8px; text-shadow: 0 2px 4px rgba(0,0,0,.5); }
+            .dot { width: 10px; height: 10px; border-radius: 50%; background: #1DB954; box-shadow: 0 0 10px #1DB954; }
+            .tabs { display: flex; gap: 20px; font-size: 15px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,.5); }
             .tab { color: rgba(255,255,255,.5); transition: color .3s; cursor: pointer; pointer-events: auto; }
             .tab.active { color: #fff; }
             .loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #000; z-index: 20; transition: opacity .3s; }
@@ -360,28 +384,26 @@
           </div>
           <div class="wrapper"></div>
           <div class="loading"><div class="spinner"></div></div>`;
+          
         this._wrapper = this.shadowRoot.querySelector('.wrapper');
         this._loading = this.shadowRoot.querySelector('.loading');
         
-        // Touch Events
+        // Обновляем высоту при ресайзе (важно для мобилок)
+        const updateHeight = () => { this._cardHeight = this._wrapper.clientHeight; };
+        window.addEventListener('resize', updateHeight);
+        updateHeight();
+
+        // Touch
         this._wrapper.addEventListener('touchstart', e => this._onStart(e), { passive: true });
         this._wrapper.addEventListener('touchmove', e => this._onMove(e), { passive: false });
         this._wrapper.addEventListener('touchend', () => this._onEnd());
         
-        // Mouse Events (для десктопа)
+        // Mouse
         this._wrapper.addEventListener('mousedown', e => { 
-          if (!e.target.closest('a,action-button')) {
-            this._isMouseDown = true;
-            this._onStart(e); 
-          }
+          if (!e.target.closest('a,action-button')) { this._isMouseDown = true; this._onStart(e); }
         });
         window.addEventListener('mousemove', e => { if (this._isMouseDown) this._onMove(e); });
-        window.addEventListener('mouseup', () => { 
-          if (this._isMouseDown) {
-            this._isMouseDown = false; 
-            this._onEnd(); 
-          }
-        });
+        window.addEventListener('mouseup', () => { if (this._isMouseDown) { this._isMouseDown = false; this._onEnd(); } });
 
         const unlock = () => {
           if (this._unlocked) return;
@@ -393,15 +415,15 @@
         document.addEventListener('touchstart', unlock, { passive: true });
         document.addEventListener('mousedown', unlock);
       }
+      
       appendTracks(arr) {
         if (!arr || arr.length === 0) return;
         const startIdx = this.tracks.length;
         arr.forEach((t, i) => {
           this.tracks.push(t);
           const card = document.createElement('track-card');
-          card.style.position = 'absolute';
-          card.style.top = `${(startIdx + i) * 100}vh`;
-          card.style.width = '100%';
+          // ЖЕСТКО ПОЗИЦИОНИРУЕМ ЧЕРЕЗ ПРОЦЕНТЫ, ЧТОБЫ ИЗБЕЖАТЬ РАСХОЖДЕНИЙ
+          card.style.transform = `translateY(${(startIdx + i) * 100}%)`; 
           card.trackData = t;
           this._wrapper.appendChild(card);
           this.cards.push(card);
@@ -416,66 +438,50 @@
       _onStart(e) {
         const cur = this.cards[this.activeIndex];
         if (cur && cur.isSheetOpen()) return;
-        
         this._startY = e.touches ? e.touches[0].clientY : e.clientY;
         this._curY = 0;
         this._swiping = true;
-        this._startTime = Date.now(); // Запоминаем время начала
-        this._wrapper.style.transition = 'none'; // Отключаем анимацию на время перетаскивания
+        this._startTime = Date.now();
+        this._wrapper.style.transition = 'none';
       }
-
+      
       _onMove(e) {
         if (!this._swiping) return;
         const y = e.touches ? e.touches[0].clientY : e.clientY;
         let d = y - this._startY;
-        
-        // Сопротивление (rubber-band) на краях
         if ((this.activeIndex === 0 && d > 0) || (this.activeIndex === this.tracks.length - 1 && d < 0)) d *= 0.2;
-        
         this._curY = d;
-        this._wrapper.style.transform = `translateY(${-(this.activeIndex * window.innerHeight) + d}px)`;
+        // Сдвигаем строго на высоту обертки
+        this._wrapper.style.transform = `translateY(${-(this.activeIndex * this._cardHeight) + d}px)`;
         if (e.cancelable) e.preventDefault();
       }
-
+      
       _onEnd() {
         if (!this._swiping) return;
         this._swiping = false;
         
         const timeElapsed = Date.now() - this._startTime;
-        const threshold = window.innerHeight * 0.1; // Достаточно 10% экрана (было 20%)
-        // Если свайп быстрый (меньше 300мс) и хоть немного сдвинут (больше 20px) — считаем это "фликом"
+        const threshold = this._cardHeight * 0.1; // 10% экрана
         const isFastFlick = timeElapsed < 300 && Math.abs(this._curY) > 20;
         
         let target = this.activeIndex;
-
-        if (this._curY < 0) { // Свайп вверх (следующий)
-          if (this._curY < -threshold || isFastFlick) {
-            target = Math.min(this.activeIndex + 1, this.tracks.length - 1);
-          }
-        } else if (this._curY > 0) { // Свайп вниз (предыдущий)
-          if (this._curY > threshold || isFastFlick) {
-            target = Math.max(this.activeIndex - 1, 0);
-          }
+        if (this._curY < 0) { 
+          if (this._curY < -threshold || isFastFlick) target = Math.min(this.activeIndex + 1, this.tracks.length - 1);
+        } else if (this._curY > 0) { 
+          if (this._curY > threshold || isFastFlick) target = Math.max(this.activeIndex - 1, 0);
         }
 
-        // Проверка на подгрузку новых треков
         if (this._curY < -threshold && this.activeIndex === this.tracks.length - 1) {
           this.dispatchEvent(new CustomEvent('need-more-tracks', { bubbles: true, composed: true }));
         }
 
         this.activeIndex = target;
-        
-        // Плавный "доводчик" до нужной карточки (пружинистая кривая iOS)
         this._wrapper.style.transition = 'transform .35s cubic-bezier(0.25, 1, 0.5, 1)';
-        this._wrapper.style.transform = `translateY(${-(target * window.innerHeight)}px)`;
+        this._wrapper.style.transform = `translateY(${-(target * this._cardHeight)}px)`;
         
-        // Управление аудио
         this.cards.forEach((card, i) => {
-          if (i === this.activeIndex) { 
-            if (this._unlocked) card.play().catch(() => {}); 
-          } else { 
-            card.reset(); 
-          }
+          if (i === this.activeIndex) { if (this._unlocked) card.play().catch(() => {}); } 
+          else { card.reset(); }
         });
         this._curY = 0;
       }
@@ -488,12 +494,7 @@
         this.root = document.getElementById('app-root');
         this.isLoading = false;
         this.seen = new Set();
-        this.terms = [
-          'taylor swift', 'the weeknd', 'billie eilish', 'drake', 'dua lipa',
-          'bad bunny', 'coldplay', 'daft punk', 'michael jackson', 'eminem',
-          'rihanna', 'kanye west', 'queen', 'nirvana', 'linkin park',
-          'arctic monkeys', 'tame impala', 'frank ocean', 'sza', 'post malone'
-        ];
+        this.terms = ['taylor swift', 'the weeknd', 'billie eilish', 'drake', 'dua lipa', 'bad bunny', 'coldplay', 'daft punk', 'michael jackson', 'eminem'];
         this.termIndex = 0; this.offset = 0; this.LIMIT = 15;
       }
       init() {
@@ -511,55 +512,37 @@
             await new Promise(r => setTimeout(r, 800));
             tracks = await this._fetch();
           }
-          if (tracks.length > 0) {
-            this.feed.appendTracks(tracks);
-          }
-        } catch (e) {
-          console.error('Load error:', e);
-        } finally {
-          this.isLoading = false;
-        }
+          if (tracks.length > 0) this.feed.appendTracks(tracks);
+        } catch (e) { console.error('Load error:', e); } 
+        finally { this.isLoading = false; }
       }
       async _fetch() {
         const term = this.terms[this.termIndex];
         const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&entity=song&limit=25&offset=${this.offset}&country=us`;
-
         try {
           const res = await fetch(url);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json();
           const results = data.results || [];
-
           const collected = [];
           for (const t of results) {
             if (!t.previewUrl || !t.artworkUrl100) continue;
             if (this.seen.has(t.trackId)) continue;
             this.seen.add(t.trackId);
             collected.push({
-              id: t.trackId,
-              name: t.trackName,
-              artist: t.artistName,
-              album: t.collectionName,
+              id: t.trackId, name: t.trackName, artist: t.artistName, album: t.collectionName,
               image: t.artworkUrl100.replace('100x100bb', '600x600bb'),
-              previewUrl: t.previewUrl,
-              storeUrl: t.trackViewUrl,
+              previewUrl: t.previewUrl, storeUrl: t.trackViewUrl,
               genres: t.primaryGenreName ? [t.primaryGenreName] : [],
               likeCount: Math.floor(Math.random() * 5000) + 500
             });
           }
-
-          if (results.length < 25 || this.offset >= 200) {
-            this.termIndex = (this.termIndex + 1) % this.terms.length;
-            this.offset = 0;
-          } else {
-            this.offset += 25;
-          }
-
+          if (results.length < 25 || this.offset >= 200) { this.termIndex = (this.termIndex + 1) % this.terms.length; this.offset = 0; } 
+          else { this.offset += 25; }
           return collected;
         } catch (err) {
           console.warn(`[API] Ошибка (${term}):`, err.message);
-          this.termIndex = (this.termIndex + 1) % this.terms.length;
-          this.offset = 0;
+          this.termIndex = (this.termIndex + 1) % this.terms.length; this.offset = 0;
           return [];
         }
       }
