@@ -53,7 +53,7 @@
       link.href = URL.createObjectURL(blob);
       document.head.appendChild(link);
 
-      console.log('%c[Disco] v9.2 — iOS Search Fix (Delay & Limit)', 'color:#1DB954;font-weight:bold');
+      console.log('%c[Disco] v9.3 — iOS AbortController & 400ms Delay Fix', 'color:#1DB954;font-weight:bold');
     })();
   </script>
 </head>
@@ -438,7 +438,7 @@
           this.dispatchEvent(new CustomEvent('search-cancelled', { bubbles: true, composed: true }));
         };
 
-        // ИСПРАВЛЕНИЕ iOS: Даем 150мс, чтобы клавиатура скрылась, прежде чем делать fetch
+        // ✅ ИСПРАВЛЕНИЕ iOS: Увеличили задержку до 400мс, чтобы клавиатура успела скрыться
         this.shadowRoot.querySelector('#search-form').addEventListener('submit', (e) => {
           e.preventDefault(); 
           const query = this._searchInput.value.trim();
@@ -447,7 +447,7 @@
             
             setTimeout(() => {
               this.dispatchEvent(new CustomEvent('search-submitted', { bubbles: true, composed: true, detail: { query } }));
-            }, 150);
+            }, 400);
           }
         });
 
@@ -569,7 +569,7 @@
     }
     customElements.define('discovery-feed', DiscoveryFeed);
 
-    // --- СТРАНИЦА: Управление API ---
+    // --- СТРАНИЦА: Управление API (AbortController & cache: no-store) ---
     class DiscoApp {
       constructor() {
         this.root = document.getElementById('app-root');
@@ -579,6 +579,7 @@
         this.termIndex = 0; this.offset = 0; this.LIMIT = 25;
         this.searchMode = false;
         this.searchQuery = '';
+        this.abortController = null; // Добавлен контроллер
       }
       
       init() {
@@ -590,6 +591,7 @@
         });
         
         this.feed.addEventListener('search-submitted', (e) => {
+          if (this.abortController) this.abortController.abort(); // Отменяем старый запрос
           this.isLoading = false;
           this.searchMode = true;
           this.searchQuery = e.detail.query;
@@ -600,6 +602,7 @@
         });
 
         this.feed.addEventListener('search-cancelled', () => {
+          if (this.abortController) this.abortController.abort(); // Отменяем старый запрос
           this.isLoading = false;
           this.searchMode = false;
           this.searchQuery = '';
@@ -616,9 +619,11 @@
         if (this.isLoading) return;
         this.isLoading = true;
         try {
-          // ИСПРАВЛЕНИЕ: Убран повторный запрос, который ломал поиск
-          let tracks = await this._fetch();
+          const tracks = await this._fetch();
           
+          // Если пришел null, значит запрос был отменен. Просто выходим.
+          if (tracks === null) return;
+
           if (tracks.length > 0) {
             this.feed.appendTracks(tracks);
           } else {
@@ -636,9 +641,12 @@
       }
       
       async _fetch() {
+        if (this.abortController) this.abortController.abort(); // Отменяем предыдущий
+        this.abortController = new AbortController();
+        const signal = this.abortController.signal;
+
         let term;
-        // ИСПРАВЛЕНИЕ: Одинаковый лимит для ленты и поиска, чтобы Apple не сбоил
-        let limit = 25; 
+        let limit = this.LIMIT; 
         
         if (this.searchMode) {
           term = this.searchQuery;
@@ -649,7 +657,8 @@
         const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&entity=song&limit=${limit}&offset=${this.offset}&country=us`;
         
         try {
-          const res = await fetch(url);
+          // Добавлен signal и cache: 'no-store'
+          const res = await fetch(url, { signal, cache: 'no-store' });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json();
           const results = data.results || [];
@@ -679,6 +688,12 @@
           
           return collected;
         } catch (err) {
+          // Если запрос отменен намеренно, возвращаем null
+          if (err.name === 'AbortError') {
+            console.log(`[API] Запрос отменен: ${term}`);
+            return null;
+          }
+          
           console.warn(`[API] Ошибка (${term}):`, err.message);
           if (!this.searchMode) {
             this.termIndex = (this.termIndex + 1) % this.terms.length; 
