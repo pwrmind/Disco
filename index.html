@@ -47,7 +47,7 @@
       link.rel = 'manifest';
       link.href = URL.createObjectURL(blob);
       document.head.appendChild(link);
-      console.log('%c[Disco] v12.1 — Hybrid Service Worker', 'color:#1DB954;font-weight:bold');
+      console.log('%c[Disco] v13.0 — XHR Edition (No SW)', 'color:#1DB954;font-weight:bold');
     })();
   </script>
 </head>
@@ -392,8 +392,8 @@
           
           <div class="empty-state" id="empty-state">
             <div class="icon">📡</div>
-            <div class="title">Ошибка сети</div>
-            <div class="subtitle">Не удалось получить данные. Проверьте подключение.</div>
+            <div class="title">Нет соединения</div>
+            <div class="subtitle">Не удалось получить данные от Apple. Проверьте интернет или попробуйте позже.</div>
           </div>
 
           <div class="loading" style="display: none;"><div class="spinner"></div></div>`;
@@ -565,6 +565,7 @@
     }
     customElements.define('discovery-feed', DiscoveryFeed);
 
+    // --- ГЛАВНЫЙ КЛАСС (Без Service Worker) ---
     class DiscoApp {
       constructor() {
         this.root = document.getElementById('app-root');
@@ -626,7 +627,6 @@
             this.feed.showEmptyState();
           }
         } catch (e) { 
-          console.error('Load error:', e); 
           this.feed.hideLoading();
           this.feed.showEmptyState();
         } finally { 
@@ -635,21 +635,30 @@
       }
       
       async _fetch() {
-        let term;
-        let limit = this.LIMIT; 
-        
-        if (this.searchMode) {
-          term = this.searchQuery;
-        } else {
-          term = this.terms[this.termIndex];
-        }
-
+        let term = this.searchMode ? this.searchQuery : this.terms[this.termIndex];
         const encodedTerm = encodeURIComponent(term).replace(/%20/g, '+');
-        const url = `https://itunes.apple.com/search?term=${encodedTerm}&media=music&entity=song&limit=${limit}&offset=${this.offset}&country=us`;
+        const url = `https://itunes.apple.com/search?term=${encodedTerm}&media=music&entity=song&limit=${this.LIMIT}&offset=${this.offset}&country=us`;
         
         try {
-          const data = await this._fetchViaSW(url);
-          
+          // ✅ ИСПОЛЬЗУЕМ XMLHttpRequest ДЛЯ СТАБИЛЬНОСТИ НА iOS
+          const data = await new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', url, true);
+            xhr.timeout = 8000; // Таймаут 8 секунд
+            
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                try { resolve(JSON.parse(xhr.responseText)); }
+                catch (e) { reject(new Error('JSON Parse Error')); }
+              } else {
+                reject(new Error(`HTTP ${xhr.status}`));
+              }
+            };
+            xhr.onerror = () => reject(new Error('Network Error'));
+            xhr.ontimeout = () => reject(new Error('Request Timeout'));
+            xhr.send();
+          });
+
           const results = data.results || [];
           const collected = [];
           
@@ -667,14 +676,13 @@
           }
           
           if (!this.searchMode) {
-            if (results.length < limit || this.offset >= 200) { 
+            if (results.length < this.LIMIT || this.offset >= 200) { 
               this.termIndex = (this.termIndex + 1) % this.terms.length; 
               this.offset = 0; 
             } else { 
-              this.offset += limit; 
+              this.offset += this.LIMIT; 
             }
           }
-          
           return collected;
         } catch (err) {
           console.warn(`[API] Ошибка (${term}):`, err.message);
@@ -685,39 +693,14 @@
           return [];
         }
       }
-
-      // Фоновый запрос через SW с безопасным фоллбэком
-      _fetchViaSW(url) {
-        return new Promise((resolve, reject) => {
-          if (!navigator.serviceWorker || !navigator.serviceWorker.controller) {
-            // Если SW еще не готов (первый запуск), делаем обычный fetch
-            return fetch(url).then(r => r.json()).then(resolve).catch(reject);
-          }
-
-          const channel = new MessageChannel();
-          
-          channel.port1.onmessage = (event) => {
-            const { success, data, error } = event.data;
-            if (success) {
-              resolve(data);
-            } else {
-              reject(new Error(error));
-            }
-          };
-
-          navigator.serviceWorker.controller.postMessage({
-            type: 'FETCH_ITUNES',
-            url: url
-          }, [channel.port2]);
-        });
-      }
     }
 
     window.addEventListener('DOMContentLoaded', () => {
+      // Удаляем старый Service Worker, если он остался
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js')
-          .then(() => console.log('SW Registered'))
-          .catch(err => console.warn('SW Registration Failed', err));
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+          for (let registration of registrations) { registration.unregister(); }
+        });
       }
       
       new DiscoApp().init();
