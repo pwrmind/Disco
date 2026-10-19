@@ -53,7 +53,7 @@
       link.href = URL.createObjectURL(blob);
       document.head.appendChild(link);
 
-      console.log('%c[Disco] v8.0 — Search Support', 'color:#1DB954;font-weight:bold');
+      console.log('%c[Disco] v8.1 — iOS Search Fix', 'color:#1DB954;font-weight:bold');
     })();
   </script>
 </head>
@@ -350,15 +350,12 @@
             :host { display: block; position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
             .wrapper { width: 100%; height: 100%; position: relative; will-change: transform; touch-action: none; }
             
-            /* HUD */
             .hud { position: absolute; top: 0; left: 0; right: 0; padding: calc(16px + env(safe-area-inset-top)) 20px 16px; display: flex; justify-content: space-between; align-items: center; z-index: 10; pointer-events: none; }
             .brand { font-size: 22px; font-weight: 800; letter-spacing: -.5px; display: flex; align-items: center; gap: 8px; text-shadow: 0 2px 4px rgba(0,0,0,.5); transition: opacity .2s; }
             .dot { width: 10px; height: 10px; border-radius: 50%; background: #1DB954; box-shadow: 0 0 10px #1DB954; }
             .tabs { display: flex; gap: 20px; font-size: 15px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,.5); transition: opacity .2s; }
             .tab { color: rgba(255,255,255,.5); transition: color .3s; cursor: pointer; pointer-events: auto; }
             .tab.active { color: #fff; }
-            
-            /* Кнопка поиска */
             .search-icon { pointer-events: auto; cursor: pointer; padding: 8px; margin-right: -8px; }
             
             /* UI Поиска */
@@ -369,24 +366,28 @@
               transition: all .3s cubic-bezier(.16,1,.3,1);
             }
             .search-bar.active { opacity: 1; pointer-events: auto; transform: translateY(0); }
-            .search-input-wrap { flex: 1; position: relative; display: flex; align-items: center; }
-            .search-input-wrap svg { position: absolute; left: 12px; fill: #888; }
+            .search-form { flex: 1; position: relative; display: flex; align-items: center; margin: 0; }
+            .search-form svg { position: absolute; left: 12px; fill: #888; pointer-events: none; }
             .search-bar input {
               width: 100%; background: rgba(40,40,40,.8); backdrop-filter: blur(15px);
               border: none; border-radius: 12px; padding: 12px 12px 12px 40px;
               color: #fff; font-size: 16px; outline: none; font-family: inherit;
+              -webkit-appearance: none; appearance: none;
             }
+            .search-bar input::-webkit-search-cancel-button { display: none; }
             .search-bar input::placeholder { color: #888; }
-            .cancel-btn { color: #fff; font-weight: 600; font-size: 15px; cursor: pointer; }
+            .cancel-btn { color: #fff; font-weight: 600; font-size: 15px; cursor: pointer; padding: 8px 0; }
             
-            /* Затемнение HUD при поиске */
-            .hud.searching .brand, .hud.searching .tabs { opacity: 0; pointer-events: none; }
+            .hud.searching .brand, .hud.searching .tabs, .hud.searching .search-icon { opacity: 0; pointer-events: none; }
 
-            .loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #000; z-index: 20; transition: opacity .3s; }
+            .loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 20; transition: opacity .3s; }
             .spinner { width: 32px; height: 32px; border: 3px solid rgba(255,255,255,.1); border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite; }
             @keyframes spin { to { transform: rotate(360deg); } }
             
-            .empty-state { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 15; color: #888; gap: 10px; }
+            .empty-state { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 15; color: #888; gap: 10px; background: #000; }
+            .empty-state .icon { font-size: 40px; margin-bottom: 10px; }
+            .empty-state .title { font-size: 18px; font-weight: 600; color: #fff; }
+            .empty-state .subtitle { font-size: 14px; text-align: center; max-width: 80%; opacity: 0.7; }
           </style>
           
           <div class="hud">
@@ -396,18 +397,26 @@
           </div>
 
           <div class="search-bar" id="search-bar">
-            <div class="search-input-wrap">
+            <form class="search-form" id="search-form">
               ${svg('search', 18, '#888')}
-              <input type="text" id="search-input" placeholder="Поиск треков или артистов...">
-            </div>
+              <input type="search" id="search-input" placeholder="Поиск..." enterkeyhint="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+            </form>
             <div class="cancel-btn" id="cancel-btn">Отмена</div>
           </div>
           
           <div class="wrapper"></div>
-          <div class="loading"><div class="spinner"></div></div>`;
+          
+          <div class="empty-state" id="empty-state">
+            <div class="icon">🔍</div>
+            <div class="title">Ничего не найдено</div>
+            <div class="subtitle">Попробуйте изменить запрос или проверьте подключение к интернету</div>
+          </div>
+
+          <div class="loading" style="display: none;"><div class="spinner"></div></div>`;
           
         this._wrapper = this.shadowRoot.querySelector('.wrapper');
         this._loading = this.shadowRoot.querySelector('.loading');
+        this._emptyState = this.shadowRoot.querySelector('#empty-state');
         this._hud = this.shadowRoot.querySelector('.hud');
         this._searchBar = this.shadowRoot.querySelector('.search-bar');
         this._searchInput = this.shadowRoot.querySelector('#search-input');
@@ -431,13 +440,13 @@
           this.dispatchEvent(new CustomEvent('search-cancelled', { bubbles: true, composed: true }));
         };
 
-        this._searchInput.addEventListener('keypress', (e) => {
-          if (e.key === 'Enter') {
-            const query = this._searchInput.value.trim();
-            if (query) {
-              this._searchInput.blur();
-              this.dispatchEvent(new CustomEvent('search-submitted', { bubbles: true, composed: true, detail: { query } }));
-            }
+        // ВАЖНО: Используем submit формы вместо keypress (работает на iOS)
+        this.shadowRoot.querySelector('#search-form').addEventListener('submit', (e) => {
+          e.preventDefault();
+          const query = this._searchInput.value.trim();
+          if (query) {
+            this._searchInput.blur();
+            this.dispatchEvent(new CustomEvent('search-submitted', { bubbles: true, composed: true, detail: { query } }));
           }
         });
 
@@ -463,6 +472,23 @@
         document.addEventListener('mousedown', unlock);
       }
       
+      showLoading() {
+        this._emptyState.style.display = 'none';
+        this._loading.style.display = 'flex';
+        this._loading.style.opacity = '1';
+      }
+
+      hideLoading() {
+        if (this._loading) {
+          this._loading.style.opacity = '0';
+          setTimeout(() => { if (this._loading) this._loading.style.display = 'none'; }, 300);
+        }
+      }
+
+      showEmptyState() {
+        this._emptyState.style.display = 'flex';
+      }
+
       clearFeed() {
         this.cards.forEach(c => c.reset());
         this._wrapper.innerHTML = '';
@@ -471,8 +497,7 @@
         this.activeIndex = 0;
         this._wrapper.style.transition = 'none';
         this._wrapper.style.transform = `translateY(0)`;
-        this._loading.style.opacity = '1';
-        this._loading.style.display = 'flex';
+        this.showLoading();
       }
 
       appendTracks(arr) {
@@ -486,10 +511,9 @@
           this._wrapper.appendChild(card);
           this.cards.push(card);
         });
-        if (this._loading && this._loading.style.display !== 'none') {
-          this._loading.style.opacity = '0';
-          setTimeout(() => { if (this._loading) this._loading.style.display = 'none'; }, 300);
-        }
+        
+        this.hideLoading();
+        
         if (this._unlocked && this.activeIndex === startIdx) this.cards[this.activeIndex].play().catch(() => {});
       }
       
@@ -555,27 +579,35 @@
         this.termIndex = 0; this.offset = 0; this.LIMIT = 15;
         this.searchMode = false;
         this.searchQuery = '';
+        this.abortController = new AbortController();
       }
       
       init() {
         this.feed = document.createElement('discovery-feed');
         this.root.appendChild(this.feed);
         
-        // События ленты
         this.feed.addEventListener('need-more-tracks', () => {
           if (!this.searchMode) this.loadNextBatch();
         });
         
-        // События поиска
         this.feed.addEventListener('search-submitted', (e) => {
+          if (this.abortController) this.abortController.abort();
+          this.abortController = new AbortController();
+          this.isLoading = false;
+
           this.searchMode = true;
           this.searchQuery = e.detail.query;
           this.seen.clear();
+          this.offset = 0;
           this.feed.clearFeed();
           this.loadNextBatch();
         });
 
         this.feed.addEventListener('search-cancelled', () => {
+          if (this.abortController) this.abortController.abort();
+          this.abortController = new AbortController();
+          this.isLoading = false;
+
           this.searchMode = false;
           this.searchQuery = '';
           this.seen.clear();
@@ -596,9 +628,19 @@
             await new Promise(r => setTimeout(r, 800));
             tracks = await this._fetch();
           }
-          if (tracks.length > 0) this.feed.appendTracks(tracks);
-        } catch (e) { console.error('Load error:', e); } 
-        finally { this.isLoading = false; }
+          
+          if (tracks.length > 0) {
+            this.feed.appendTracks(tracks);
+          } else {
+            this.feed.hideLoading();
+            this.feed.showEmptyState();
+          }
+        } catch (e) { 
+          console.error('Load error:', e); 
+          this.feed.hideLoading();
+        } finally { 
+          this.isLoading = false; 
+        }
       }
       
       async _fetch() {
@@ -607,7 +649,7 @@
         
         if (this.searchMode) {
           term = this.searchQuery;
-          limit = 50; // Больше результатов для поиска
+          limit = 50;
         } else {
           term = this.terms[this.termIndex];
         }
@@ -615,7 +657,7 @@
         const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&entity=song&limit=${limit}&offset=${this.offset}&country=us`;
         
         try {
-          const res = await fetch(url);
+          const res = await fetch(url, { signal: this.abortController.signal });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json();
           const results = data.results || [];
@@ -645,6 +687,8 @@
           
           return collected;
         } catch (err) {
+          if (err.name === 'AbortError') return []; // Игнорируем отмененные запросы
+          
           console.warn(`[API] Ошибка (${term}):`, err.message);
           if (!this.searchMode) {
             this.termIndex = (this.termIndex + 1) % this.terms.length; 
