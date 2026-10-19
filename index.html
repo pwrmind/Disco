@@ -30,9 +30,13 @@
   </style>
 
   <script>
+    // ============================================================
+    // ГЕНЕРАЦИЯ PWA МАНИФЕСТА
+    // ============================================================
     (function () {
       const iconSvg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' fill='#000' rx='40'/><circle cx='96' cy='96' r='52' fill='#1DB954'/><circle cx='96' cy='96' r='14' fill='#000'/></svg>`;
       const iconUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(iconSvg);
+
       const manifest = {
         name: 'Disco Music Discovery',
         short_name: 'Disco',
@@ -42,12 +46,14 @@
         theme_color: '#000000',
         icons: [{ src: iconUrl, sizes: '192x192', type: 'image/svg+xml', purpose: 'any maskable' }]
       };
+
       const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
       const link = document.createElement('link');
       link.rel = 'manifest';
       link.href = URL.createObjectURL(blob);
       document.head.appendChild(link);
-      console.log('%c[Disco] v9.1 — Fetch Restored (iOS Search Fix)', 'color:#1DB954;font-weight:bold');
+
+      console.log('%c[Disco] v9.2 — iOS Search Fix (Delay & Limit)', 'color:#1DB954;font-weight:bold');
     })();
   </script>
 </head>
@@ -55,6 +61,7 @@
   <div id="app-root"></div>
 
   <script>
+    // --- ИКОНКИ ---
     const ICONS = {
       heart: 'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z',
       comment: 'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z',
@@ -65,6 +72,7 @@
     };
     const svg = (n, s = 24, f = '#fff') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="${f}" xmlns="http://www.w3.org/2000/svg"><path d="${ICONS[n] || ''}"/></svg>`;
 
+    // --- АТОМ: Аудио ---
     class AudioStream extends HTMLElement {
       constructor() {
         super();
@@ -111,6 +119,7 @@
     }
     customElements.define('audio-stream', AudioStream);
 
+    // --- МОЛЕКУЛА: Кнопка ---
     class ActionButton extends HTMLElement {
       constructor() { super(); this.attachShadow({ mode: 'open' }); }
       static get observedAttributes() { return ['icon', 'count', 'active']; }
@@ -135,6 +144,7 @@
     }
     customElements.define('action-button', ActionButton);
 
+    // --- МОЛЕКУЛА: Инфо ---
     class TrackInfo extends HTMLElement {
       constructor() { super(); this.attachShadow({ mode: 'open' }); }
       static get observedAttributes() { return ['title', 'artist', 'album', 'tag']; }
@@ -153,11 +163,15 @@
             .album { font-size: 13px; color: rgba(255,255,255,.6); font-weight: 400; margin-top: -2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             .tag { align-self: flex-start; font-size: 11px; font-weight: 600; background: rgba(255,255,255,.2); padding: 3px 8px; border-radius: 10px; margin-top: 6px; backdrop-filter: blur(5px); }
           </style>
-          <div class="title">${t}</div><div class="artist">${a}</div><div class="album">${al}</div><div class="tag">#${g}</div>`;
+          <div class="title">${t}</div>
+          <div class="artist">${a}</div>
+          <div class="album">${al}</div>
+          <div class="tag">#${g}</div>`;
       }
     }
     customElements.define('track-info', TrackInfo);
 
+    // --- ОРГАНИЗМ: Шторка комментариев ---
     class CommentsSheet extends HTMLElement {
       constructor() {
         super();
@@ -229,6 +243,7 @@
     }
     customElements.define('comments-sheet', CommentsSheet);
 
+    // --- ОРГАНИЗМ: Карточка (ИСПРАВЛЕНА ВЕРСТКА) ---
     class TrackCard extends HTMLElement {
       constructor() {
         super();
@@ -318,6 +333,7 @@
     }
     customElements.define('track-card', TrackCard);
 
+    // --- ШАБЛОН: Лента с поиском ---
     class DiscoveryFeed extends HTMLElement {
       constructor() {
         super();
@@ -422,12 +438,16 @@
           this.dispatchEvent(new CustomEvent('search-cancelled', { bubbles: true, composed: true }));
         };
 
+        // ИСПРАВЛЕНИЕ iOS: Даем 150мс, чтобы клавиатура скрылась, прежде чем делать fetch
         this.shadowRoot.querySelector('#search-form').addEventListener('submit', (e) => {
-          e.preventDefault(); // Важно для iOS, чтобы страница не перезагружалась
+          e.preventDefault(); 
           const query = this._searchInput.value.trim();
           if (query) {
-            this._searchInput.blur();
-            this.dispatchEvent(new CustomEvent('search-submitted', { bubbles: true, composed: true, detail: { query } }));
+            this._searchInput.blur(); 
+            
+            setTimeout(() => {
+              this.dispatchEvent(new CustomEvent('search-submitted', { bubbles: true, composed: true, detail: { query } }));
+            }, 150);
           }
         });
 
@@ -549,13 +569,14 @@
     }
     customElements.define('discovery-feed', DiscoveryFeed);
 
+    // --- СТРАНИЦА: Управление API ---
     class DiscoApp {
       constructor() {
         this.root = document.getElementById('app-root');
         this.isLoading = false;
         this.seen = new Set();
         this.terms = ['taylor swift', 'the weeknd', 'billie eilish', 'drake', 'dua lipa', 'bad bunny', 'coldplay', 'daft punk', 'michael jackson', 'eminem'];
-        this.termIndex = 0; this.offset = 0; this.LIMIT = 15;
+        this.termIndex = 0; this.offset = 0; this.LIMIT = 25;
         this.searchMode = false;
         this.searchQuery = '';
       }
@@ -569,7 +590,7 @@
         });
         
         this.feed.addEventListener('search-submitted', (e) => {
-          this.isLoading = false; // Сбрасываем флаг принудительно на случай зависания
+          this.isLoading = false;
           this.searchMode = true;
           this.searchQuery = e.detail.query;
           this.seen.clear();
@@ -595,18 +616,15 @@
         if (this.isLoading) return;
         this.isLoading = true;
         try {
+          // ИСПРАВЛЕНИЕ: Убран повторный запрос, который ломал поиск
           let tracks = await this._fetch();
           
           if (tracks.length > 0) {
             this.feed.appendTracks(tracks);
           } else {
-            // Если это поиск и ничего не нашли — показываем пустоту
+            this.feed.hideLoading();
             if (this.searchMode) {
-              this.feed.hideLoading();
               this.feed.showEmptyState();
-            } else {
-              // Если это лента, пробуем следующий запрос
-              this.feed.hideLoading();
             }
           }
         } catch (e) { 
@@ -619,11 +637,11 @@
       
       async _fetch() {
         let term;
-        let limit = 25;
+        // ИСПРАВЛЕНИЕ: Одинаковый лимит для ленты и поиска, чтобы Apple не сбоил
+        let limit = 25; 
         
         if (this.searchMode) {
           term = this.searchQuery;
-          limit = 50; // При поиске запрашиваем больше
         } else {
           term = this.terms[this.termIndex];
         }
