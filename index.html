@@ -4,9 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#000000">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23000' rx='22'/%3E%3Ccircle cx='50' cy='50' r='30' fill='%231DB954'/%3E%3Ccircle cx='50' cy='50' r='8' fill='%23000'/%3E%3C/svg%3E">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%23000' rx='40'/%3E%3Ccircle cx='90' cy='90' r='54' fill='%231DB954'/%3E%3Ccircle cx='90' cy='90' r='14' fill='%23000'/%3E%3C/svg%3E">
+
   <title>Disco — Music Discovery</title>
+
   <style>
     * { box-sizing: border-box; }
     html, body {
@@ -18,12 +24,43 @@
       overscroll-behavior: none;
     }
     #app-root { width: 100vw; height: 100vh; height: 100dvh; }
-    
-    /* Красивый скроллбар для шторки комментариев */
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
   </style>
+
+  <script>
+    // ============================================================
+    // ГЕНЕРАЦИЯ PWA МАНИФЕСТА
+    // ============================================================
+    (function () {
+      const iconSvg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' fill='#000' rx='40'/><circle cx='96' cy='96' r='52' fill='#1DB954'/><circle cx='96' cy='96' r='14' fill='#000'/></svg>`;
+      const iconUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(iconSvg);
+
+      const manifest = {
+        name: 'Disco Music Discovery',
+        short_name: 'Disco',
+        description: 'TikTok-style music discovery on real track previews',
+        start_url: window.location.origin + window.location.pathname,
+        scope: window.location.origin + '/',
+        display: 'standalone',
+        orientation: 'portrait',
+        background_color: '#000000',
+        theme_color: '#000000',
+        icons: [{ src: iconUrl, sizes: '192x192', type: 'image/svg+xml', purpose: 'any maskable' }]
+      };
+
+      const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+      const manifestUrl = URL.createObjectURL(blob);
+
+      const link = document.createElement('link');
+      link.rel = 'manifest';
+      link.href = manifestUrl;
+      document.head.appendChild(link);
+
+      console.log('%c[Disco] v6.0 — Direct iTunes API, no proxy', 'color:#1DB954;font-weight:bold');
+    })();
+  </script>
 </head>
 <body>
   <div id="app-root"></div>
@@ -39,7 +76,7 @@
     };
     const svg = (n, s = 24, f = '#fff') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="${f}" xmlns="http://www.w3.org/2000/svg"><path d="${ICONS[n] || ''}"/></svg>`;
 
-    // --- АТОМ: Аудио-плеер ---
+    // --- АТОМ: Аудио ---
     class AudioStream extends HTMLElement {
       constructor() {
         super();
@@ -62,10 +99,8 @@
         if (!this._src) return;
         if (this.audio.src !== this._src) this.audio.src = this._src;
         this.audio.volume = 0;
-        try {
-          await this.audio.play();
-          this._fadeTo(1, 400);
-        } catch (e) { console.warn('Autoplay blocked'); }
+        try { await this.audio.play(); this._fadeTo(1, 400); }
+        catch (e) { console.warn('Autoplay blocked'); }
       }
       pause() { this.audio.pause(); }
       reset() {
@@ -74,14 +109,10 @@
         this.audio.volume = 1;
         if (this._fade) { clearInterval(this._fade); this._fade = null; }
       }
-      fade(from, to, ms) {
-        this.audio.volume = Math.max(0, Math.min(1, from));
-        this._fadeTo(to, ms);
-      }
+      fade(from, to, ms) { this.audio.volume = Math.max(0, Math.min(1, from)); this._fadeTo(to, ms); }
       _fadeTo(target, ms) {
         if (this._fade) clearInterval(this._fade);
-        const start = this.audio.volume;
-        const steps = 20; let i = 0;
+        const start = this.audio.volume; const steps = 20; let i = 0;
         this._fade = setInterval(() => {
           i++;
           const t = i / steps;
@@ -92,7 +123,7 @@
     }
     customElements.define('audio-stream', AudioStream);
 
-    // --- МОЛЕКУЛА: Кнопка с иконкой ---
+    // --- МОЛЕКУЛА: Кнопка ---
     class ActionButton extends HTMLElement {
       constructor() { super(); this.attachShadow({ mode: 'open' }); }
       static get observedAttributes() { return ['icon', 'count', 'active']; }
@@ -106,52 +137,37 @@
         this.shadowRoot.innerHTML = `
           <style>
             :host { display: flex; flex-direction: column; align-items: center; cursor: pointer; }
-            .btn {
-              width: 52px; height: 52px; border-radius: 50%;
-              background: rgba(40, 40, 40, 0.6);
-              backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
-              display: flex; align-items: center; justify-content: center;
-              transition: transform 0.15s ease;
-            }
-            :host(:active) .btn { transform: scale(0.9); background: rgba(60, 60, 60, 0.8); }
-            .count { font-size: 13px; font-weight: 600; margin-top: 6px; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
-            svg { transition: fill 0.2s ease; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); }
+            .btn { width: 52px; height: 52px; border-radius: 50%; background: rgba(40,40,40,.6); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); display: flex; align-items: center; justify-content: center; transition: transform .15s ease; }
+            :host(:active) .btn { transform: scale(.9); background: rgba(60,60,60,.8); }
+            .count { font-size: 13px; font-weight: 600; margin-top: 6px; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,.5); }
+            svg { transition: fill .2s ease; filter: drop-shadow(0 2px 4px rgba(0,0,0,.3)); }
           </style>
           <div class="btn">${svg(icon, 24, color)}</div>
-          <span class="count">${count}</span>
-        `;
+          <span class="count">${count}</span>`;
       }
     }
     customElements.define('action-button', ActionButton);
 
-    // --- МОЛЕКУЛА: Информация о треке ---
+    // --- МОЛЕКУЛА: Инфо ---
     class TrackInfo extends HTMLElement {
       constructor() { super(); this.attachShadow({ mode: 'open' }); }
       static get observedAttributes() { return ['title', 'artist', 'album', 'tag']; }
       connectedCallback() { this._render(); }
       attributeChangedCallback() { this._render(); }
       _render() {
-        const title = this.getAttribute('title') || '';
-        const artist = this.getAttribute('artist') || '';
-        const album = this.getAttribute('album') || '';
-        const tag = this.getAttribute('tag') || '';
+        const t = this.getAttribute('title') || '';
+        const a = this.getAttribute('artist') || '';
+        const al = this.getAttribute('album') || '';
+        const g = this.getAttribute('tag') || '';
         this.shadowRoot.innerHTML = `
           <style>
-            :host { display: flex; flex-direction: column; gap: 6px; color: #fff; text-shadow: 0 2px 5px rgba(0,0,0,0.6); }
-            .title { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.1; }
-            .artist { font-size: 16px; font-weight: 500; color: rgba(255,255,255,0.9); display: flex; gap: 4px; }
-            .album { font-size: 14px; color: rgba(255,255,255,0.6); font-weight: 400; margin-top: -2px; }
-            .tag { 
-              align-self: flex-start; font-size: 12px; font-weight: 600; 
-              background: rgba(255,255,255,0.2); padding: 4px 10px; 
-              border-radius: 12px; margin-top: 6px; backdrop-filter: blur(5px);
-            }
+            :host { display: flex; flex-direction: column; gap: 6px; color: #fff; text-shadow: 0 2px 5px rgba(0,0,0,.6); }
+            .title { font-size: 26px; font-weight: 800; letter-spacing: -.5px; line-height: 1.1; }
+            .artist { font-size: 16px; font-weight: 500; color: rgba(255,255,255,.9); }
+            .album { font-size: 14px; color: rgba(255,255,255,.6); font-weight: 400; margin-top: -2px; }
+            .tag { align-self: flex-start; font-size: 12px; font-weight: 600; background: rgba(255,255,255,.2); padding: 4px 10px; border-radius: 12px; margin-top: 6px; backdrop-filter: blur(5px); }
           </style>
-          <div class="title">${title}</div>
-          <div class="artist">${artist}</div>
-          <div class="album">${album}</div>
-          <div class="tag">#${tag}</div>
-        `;
+          <div class="title">${t}</div><div class="artist">${a}</div><div class="album">${al}</div><div class="tag">#${g}</div>`;
       }
     }
     customElements.define('track-info', TrackInfo);
@@ -168,17 +184,11 @@
         this.shadowRoot.innerHTML = `
           <style>
             :host { position: absolute; inset: 0; z-index: 100; pointer-events: none; }
-            .backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.4); opacity: 0; transition: opacity 0.3s; backdrop-filter: blur(4px); }
-            .sheet {
-              position: absolute; bottom: 0; left: 0; right: 0; height: 60dvh;
-              background: #1c1c1e; border-radius: 24px 24px 0 0;
-              transform: translateY(100%); transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-              display: flex; flex-direction: column;
-              box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
-            }
+            .backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.4); opacity: 0; transition: opacity .3s; backdrop-filter: blur(4px); }
+            .sheet { position: absolute; bottom: 0; left: 0; right: 0; height: 60dvh; background: #1c1c1e; border-radius: 24px 24px 0 0; transform: translateY(100%); transition: transform .35s cubic-bezier(.16,1,.3,1); display: flex; flex-direction: column; box-shadow: 0 -10px 40px rgba(0,0,0,.5); }
             .handle { width: 100%; height: 30px; display: flex; justify-content: center; align-items: center; cursor: grab; }
-            .handle-bar { width: 40px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 3px; }
-            .header { padding: 0 20px 15px; border-bottom: 1px solid rgba(255,255,255,0.08); font-size: 17px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+            .handle-bar { width: 40px; height: 5px; background: rgba(255,255,255,.2); border-radius: 3px; }
+            .header { padding: 0 20px 15px; border-bottom: 1px solid rgba(255,255,255,.08); font-size: 17px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
             .close { padding: 5px; cursor: pointer; }
             .body { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
             .comment { display: flex; gap: 14px; font-size: 14px; }
@@ -186,27 +196,20 @@
             .c-body { display: flex; flex-direction: column; gap: 4px; }
             .c-author { font-weight: 600; color: #888; font-size: 12px; }
             .c-text { line-height: 1.4; color: #eee; }
-            .input-bar { padding: 15px 20px calc(15px + env(safe-area-inset-bottom)); border-top: 1px solid rgba(255,255,255,0.08); display: flex; gap: 10px; }
+            .input-bar { padding: 15px 20px calc(15px + env(safe-area-inset-bottom)); border-top: 1px solid rgba(255,255,255,.08); display: flex; gap: 10px; }
             input { flex: 1; background: #2c2c2e; border: none; padding: 12px 16px; border-radius: 20px; color: #fff; font-size: 15px; outline: none; }
             .send { background: #fff; color: #000; border: none; padding: 0 20px; border-radius: 20px; font-weight: 600; font-size: 14px; cursor: pointer; }
           </style>
           <div class="backdrop"></div>
           <div class="sheet">
             <div class="handle"><div class="handle-bar"></div></div>
-            <div class="header">
-              <span>Комментарии</span>
-              <div class="close">${svg('close', 20, '#888')}</div>
-            </div>
+            <div class="header"><span>Комментарии</span><div class="close">${svg('close', 20, '#888')}</div></div>
             <div class="body">
               <div class="comment"><div class="avatar">M</div><div class="c-body"><div class="c-author">MusicLover</div><div class="c-text">Этот трек просто пушка! 🔥</div></div></div>
-              <div class="comment"><div class="avatar">A</div><div class="c-body"><div class="c-author">Alex</div><div class="c-text">Идеально для вечерней поездки на машине.</div></div></div>
+              <div class="comment"><div class="avatar">A</div><div class="c-body"><div class="c-author">Alex</div><div class="c-text">Идеально для вечерней поездки.</div></div></div>
             </div>
-            <div class="input-bar">
-              <input type="text" placeholder="Добавить комментарий..." maxlength="100">
-              <button class="send">Отправить</button>
-            </div>
-          </div>
-        `;
+            <div class="input-bar"><input type="text" placeholder="Добавить комментарий..." maxlength="100"><button class="send">Отправить</button></div>
+          </div>`;
         const $ = s => this.shadowRoot.querySelector(s);
         $('.close').onclick = () => this._close();
         $('.backdrop').onclick = () => this._close();
@@ -227,7 +230,7 @@
         if (!this._drag) return; this._drag = false;
         const sheet = this.shadowRoot.querySelector('.sheet');
         if (this._curY > sheet.offsetHeight * 0.25) this._close();
-        else { sheet.style.transition = 'transform 0.2s ease-out'; sheet.style.transform = 'translateY(0)'; }
+        else { sheet.style.transition = 'transform .2s ease-out'; sheet.style.transform = 'translateY(0)'; }
         this._curY = 0;
       }
       _close() { this.dispatchEvent(new CustomEvent('sheet-closed', { bubbles: true, composed: true })); }
@@ -247,96 +250,43 @@
       constructor() {
         super();
         this.attachShadow({ mode: 'open' });
-        this._data = null;
-        this._liked = false;
+        this._data = null; this._liked = false;
       }
       set trackData(d) {
         this._data = d;
-        // Проверяем, есть ли трек в localStorage
-        const savedLikes = JSON.parse(localStorage.getItem('disco_likes') || '[]');
-        this._liked = savedLikes.includes(d.id);
+        const saved = JSON.parse(localStorage.getItem('disco_likes') || '[]');
+        this._liked = saved.includes(d.id);
         this._render();
         this._wire();
       }
       _fmt(n) { return n >= 1000 ? (n / 1000).toFixed(1) + 'K' : n; }
-      
       _render() {
         const d = this._data;
-        // Форматируем количество лайков (добавляем базовое значение, чтобы выглядело реалистично)
         const displayLikes = this._fmt((d.likeCount || 0) + (this._liked ? 1 : 0));
-        
         this.shadowRoot.innerHTML = `
           <style>
             :host { display: block; position: relative; width: 100vw; height: 100vh; height: 100dvh; overflow: hidden; background: #000; }
-            /* Размытый фон */
-            .bg { 
-              position: absolute; inset: -50px;
-              background: url('${d.image}') center/cover;
-              filter: blur(80px) brightness(0.4) saturate(1.5);
-              transform: scale(1.2); z-index: 1;
-            }
-            /* Затемняющий градиент */
-            .gradient-overlay {
-              position: absolute; inset: 0; z-index: 2;
-              background: linear-gradient(to bottom, rgba(0,0,0,0) 40%, rgba(0,0,0,0.8) 100%);
-            }
-            /* Контент */
-            .content {
-              position: absolute; inset: 0; z-index: 3;
-              display: flex; flex-direction: column; justify-content: space-between;
-              padding: 100px 24px calc(30px + env(safe-area-inset-bottom));
-            }
-            /* Центральная обложка */
+            .bg { position: absolute; inset: -50px; background: url('${d.image}') center/cover; filter: blur(80px) brightness(.4) saturate(1.5); transform: scale(1.2); z-index: 1; }
+            .gradient-overlay { position: absolute; inset: 0; z-index: 2; background: linear-gradient(to bottom, rgba(0,0,0,0) 40%, rgba(0,0,0,.8) 100%); }
+            .content { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; justify-content: space-between; padding: 100px 24px calc(30px + env(safe-area-inset-bottom)); }
             .center-zone { flex: 1; display: flex; align-items: center; justify-content: center; margin-bottom: 40px; }
-            .cover {
-              width: 80vw; max-width: 340px; aspect-ratio: 1;
-              border-radius: 20px;
-              box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.1);
-              object-fit: cover;
-              animation: coverIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-            }
-            @keyframes coverIn { from { opacity: 0; transform: scale(0.9) translateY(20px); } to { opacity: 1; transform: none; } }
-            
-            /* Нижняя зона */
+            .cover { width: 80vw; max-width: 340px; aspect-ratio: 1; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.1); object-fit: cover; animation: coverIn .6s cubic-bezier(.16,1,.3,1); }
+            @keyframes coverIn { from { opacity: 0; transform: scale(.9) translateY(20px); } to { opacity: 1; transform: none; } }
             .bottom-layout { display: flex; justify-content: space-between; align-items: flex-end; }
             .info-zone { flex: 1; min-width: 0; padding-right: 20px; }
             .sidebar-zone { display: flex; flex-direction: column; gap: 20px; align-items: center; }
-            
-            /* Кнопка "Слушать полностью" */
-            .store-btn {
-              display: inline-flex; align-items: center; gap: 8px;
-              background: #fff; color: #000; text-decoration: none;
-              padding: 12px 20px; border-radius: 30px;
-              font-size: 14px; font-weight: 700;
-              margin-top: 16px; box-shadow: 0 4px 15px rgba(255,255,255,0.15);
-              transition: transform 0.15s;
-            }
-            .store-btn:active { transform: scale(0.96); }
-            
+            .store-btn { display: inline-flex; align-items: center; gap: 8px; background: #fff; color: #000; text-decoration: none; padding: 12px 20px; border-radius: 30px; font-size: 14px; font-weight: 700; margin-top: 16px; box-shadow: 0 4px 15px rgba(255,255,255,.15); transition: transform .15s; }
+            .store-btn:active { transform: scale(.96); }
             audio-progress-bar { position: absolute; bottom: 0; left: 0; right: 0; z-index: 4; }
           </style>
-
-          <div class="bg"></div>
-          <div class="gradient-overlay"></div>
-          
+          <div class="bg"></div><div class="gradient-overlay"></div>
           <div class="content">
-            <div class="center-zone">
-              <img class="cover" src="${d.image}" alt="cover">
-            </div>
-            
+            <div class="center-zone"><img class="cover" src="${d.image}" alt="cover"></div>
             <div class="bottom-layout">
               <div class="info-zone">
-                <track-info 
-                  title="${d.name}" 
-                  artist="${d.artist}" 
-                  album="${d.album}"
-                  tag="${d.genres[0] || 'Music'}">
-                </track-info>
-                <a class="store-btn" href="${d.storeUrl}" target="_blank">
-                  ${svg('external', 16, '#000')} Слушать полностью
-                </a>
+                <track-info title="${d.name}" artist="${d.artist}" album="${d.album}" tag="${d.genres[0] || 'Music'}"></track-info>
+                <a class="store-btn" href="${d.storeUrl}" target="_blank">${svg('external', 16, '#000')} Слушать полностью</a>
               </div>
-              
               <div class="sidebar-zone">
                 <action-button icon="heart" count="${displayLikes}" data-action="like" ${this._liked ? 'active' : ''}></action-button>
                 <action-button icon="comment" count="154" data-action="comment"></action-button>
@@ -344,67 +294,33 @@
               </div>
             </div>
           </div>
-
           <audio-stream src="${d.previewUrl}"></audio-stream>
-          <audio-progress-bar></audio-progress-bar>
-        `;
-        
+          <audio-progress-bar></audio-progress-bar>`;
         const sheet = document.createElement('comments-sheet');
         sheet.setAttribute('opened', 'false');
         this.shadowRoot.appendChild(sheet);
       }
-
       _wire() {
         const $ = s => this.shadowRoot.querySelector(s);
-        const audio = $('audio-stream');
-        const bar = $('audio-progress-bar');
-        const sheet = $('comments-sheet');
-        const likeBtn = $('[data-action="like"]');
-        const commentBtn = $('[data-action="comment"]');
-        const shareBtn = $('[data-action="share"]');
-
-        audio.addEventListener('time-updated', e => {
-          bar.style.width = `${(e.detail.currentTime / e.detail.duration) * 100}%`;
-        });
-
+        const audio = $('audio-stream'); const bar = $('audio-progress-bar');
+        const sheet = $('comments-sheet'); const likeBtn = $('[data-action="like"]');
+        const commentBtn = $('[data-action="comment"]'); const shareBtn = $('[data-action="share"]');
+        audio.addEventListener('time-updated', e => { bar.style.width = `${(e.detail.currentTime / e.detail.duration) * 100}%`; });
         likeBtn.addEventListener('click', () => {
           this._liked = !this._liked;
-          if (this._liked) likeBtn.setAttribute('active', '');
-          else likeBtn.removeAttribute('active');
-          
-          // Сохраняем в localStorage
+          if (this._liked) likeBtn.setAttribute('active', ''); else likeBtn.removeAttribute('active');
           let likes = JSON.parse(localStorage.getItem('disco_likes') || '[]');
-          if (this._liked) likes.push(this._data.id);
-          else likes = likes.filter(id => id !== this._data.id);
+          if (this._liked) likes.push(this._data.id); else likes = likes.filter(id => id !== this._data.id);
           localStorage.setItem('disco_likes', JSON.stringify(likes));
-          
-          // Обновляем счетчик на кнопке
-          const count = (this._data.likeCount || 0) + (this._liked ? 1 : 0);
-          likeBtn.setAttribute('count', this._fmt(count));
+          likeBtn.setAttribute('count', this._fmt((this._data.likeCount || 0) + (this._liked ? 1 : 0)));
         });
-
-        commentBtn.addEventListener('click', () => {
-          sheet.setAttribute('opened', 'true');
-          this.setAttribute('sheet-open', '');
-          audio.fade(1, 0.1, 300); // Приглушаем звук
-        });
-
-        sheet.addEventListener('sheet-closed', () => {
-          sheet.setAttribute('opened', 'false');
-          this.removeAttribute('sheet-open');
-          audio.fade(0.1, 1, 300); // Возвращаем звук
-        });
-
+        commentBtn.addEventListener('click', () => { sheet.setAttribute('opened', 'true'); this.setAttribute('sheet-open', ''); audio.fade(1, .1, 300); });
+        sheet.addEventListener('sheet-closed', () => { sheet.setAttribute('opened', 'false'); this.removeAttribute('sheet-open'); audio.fade(.1, 1, 300); });
         shareBtn.addEventListener('click', async () => {
-          if (navigator.share) {
-            try { await navigator.share({ title: this._data.name, url: this._data.storeUrl }); } catch (_) {}
-          } else {
-            navigator.clipboard.writeText(this._data.storeUrl);
-            alert('Ссылка скопирована!');
-          }
+          if (navigator.share) { try { await navigator.share({ title: this._data.name, url: this._data.storeUrl }); } catch (_) {} }
+          else { navigator.clipboard.writeText(this._data.storeUrl); alert('Ссылка скопирована!'); }
         });
       }
-
       async play() { const a = this.shadowRoot.querySelector('audio-stream'); if (a) await a.play(); }
       reset() { const a = this.shadowRoot.querySelector('audio-stream'); if (a) a.reset(); }
       isSheetOpen() { return this.hasAttribute('sheet-open'); }
@@ -416,79 +332,48 @@
       constructor() {
         super();
         this.attachShadow({ mode: 'open' });
-        this.activeIndex = 0;
-        this.tracks = [];
-        this.cards = [];
-        this._startY = 0; this._curY = 0; this._swiping = false;
-        this._unlocked = false;
+        this.activeIndex = 0; this.tracks = []; this.cards = [];
+        this._startY = 0; this._curY = 0; this._swiping = false; this._unlocked = false;
       }
       connectedCallback() {
         this.shadowRoot.innerHTML = `
           <style>
             :host { display: block; width: 100vw; height: 100vh; height: 100dvh; overflow: hidden; position: relative; background: #000; }
             .wrapper { width: 100%; height: 100%; position: relative; will-change: transform; touch-action: none; }
-            
-            /* Верхнее меню */
-            .hud {
-              position: absolute; top: 0; left: 0; right: 0;
-              padding: calc(16px + env(safe-area-inset-top)) 24px 16px;
-              display: flex; justify-content: space-between; align-items: center;
-              z-index: 10; pointer-events: none;
-              background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
-            }
-            .brand { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; }
+            .hud { position: absolute; top: 0; left: 0; right: 0; padding: calc(16px + env(safe-area-inset-top)) 24px 16px; display: flex; justify-content: space-between; align-items: center; z-index: 10; pointer-events: none; background: linear-gradient(to bottom, rgba(0,0,0,.5), transparent); }
+            .brand { font-size: 22px; font-weight: 800; letter-spacing: -.5px; display: flex; align-items: center; gap: 8px; }
             .dot { width: 12px; height: 12px; border-radius: 50%; background: #1DB954; box-shadow: 0 0 12px #1DB954; }
             .tabs { display: flex; gap: 24px; font-size: 15px; font-weight: 600; }
-            .tab { color: rgba(255,255,255,0.5); transition: color 0.3s; cursor: pointer; pointer-events: auto; }
+            .tab { color: rgba(255,255,255,.5); transition: color .3s; cursor: pointer; pointer-events: auto; }
             .tab.active { color: #fff; }
-            
-            .loading {
-              position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-              background: #000; z-index: 20; gap: 16px; transition: opacity 0.3s;
-            }
-            .spinner { width: 32px; height: 32px; border: 3px solid rgba(255,255,255,0.1); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+            .loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #000; z-index: 20; transition: opacity .3s; }
+            .spinner { width: 32px; height: 32px; border: 3px solid rgba(255,255,255,.1); border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite; }
             @keyframes spin { to { transform: rotate(360deg); } }
           </style>
-          
           <div class="hud">
             <div class="brand"><div class="dot"></div>Disco</div>
-            <div class="tabs">
-              <span class="tab active">Для вас</span>
-              <span class="tab">Тренды</span>
-            </div>
+            <div class="tabs"><span class="tab active">Для вас</span><span class="tab">Тренды</span></div>
           </div>
-          
           <div class="wrapper"></div>
-          
-          <div class="loading">
-            <div class="spinner"></div>
-          </div>
-        `;
-
+          <div class="loading"><div class="spinner"></div></div>`;
         this._wrapper = this.shadowRoot.querySelector('.wrapper');
         this._loading = this.shadowRoot.querySelector('.loading');
-
-        // Обработка свайпов
         this._wrapper.addEventListener('touchstart', e => this._onStart(e), { passive: true });
         this._wrapper.addEventListener('touchmove', e => this._onMove(e), { passive: false });
         this._wrapper.addEventListener('touchend', () => this._onEnd());
-        
         this._wrapper.addEventListener('mousedown', e => { if (!e.target.closest('a,action-button')) this._onStart(e); });
         window.addEventListener('mousemove', e => this._onMove(e));
         window.addEventListener('mouseup', () => this._onEnd());
-
-        // Разблокировка звука по первому клику (политика браузеров)
         const unlock = () => {
           if (this._unlocked) return;
           this._unlocked = true;
-          if (this.cards[this.activeIndex]) this.cards[this.activeIndex].play().catch(()=>{});
+          if (this.cards[this.activeIndex]) this.cards[this.activeIndex].play().catch(() => {});
           document.removeEventListener('touchstart', unlock);
           document.removeEventListener('mousedown', unlock);
         };
         document.addEventListener('touchstart', unlock, { passive: true });
         document.addEventListener('mousedown', unlock);
       }
-
       appendTracks(arr) {
         if (!arr || arr.length === 0) return;
         const startIdx = this.tracks.length;
@@ -502,13 +387,12 @@
           this._wrapper.appendChild(card);
           this.cards.push(card);
         });
-        
-        if (this._loading) this._loading.style.opacity = '0';
-        setTimeout(() => { if (this._loading) this._loading.style.display = 'none'; }, 300);
-        
-        if (this._unlocked && this.activeIndex === startIdx) this.cards[this.activeIndex].play().catch(()=>{});
+        if (this._loading && this._loading.style.display !== 'none') {
+          this._loading.style.opacity = '0';
+          setTimeout(() => { if (this._loading) this._loading.style.display = 'none'; }, 300);
+        }
+        if (this._unlocked && this.activeIndex === startIdx) this.cards[this.activeIndex].play().catch(() => {});
       }
-
       _onStart(e) {
         const cur = this.cards[this.activeIndex];
         if (cur && cur.isSheetOpen()) return;
@@ -516,149 +400,124 @@
         this._swiping = true;
         this._wrapper.style.transition = 'none';
       }
-
       _onMove(e) {
         if (!this._swiping) return;
         const y = e.touches ? e.touches[0].clientY : e.clientY;
         let d = y - this._startY;
-        
-        // Сопротивление на краях
         if ((this.activeIndex === 0 && d > 0) || (this.activeIndex === this.tracks.length - 1 && d < 0)) d *= 0.2;
-        
         this._curY = d;
         this._wrapper.style.transform = `translateY(${-(this.activeIndex * window.innerHeight) + d}px)`;
         if (e.cancelable) e.preventDefault();
       }
-
       _onEnd() {
         if (!this._swiping) return;
         this._swiping = false;
         const threshold = window.innerHeight * 0.2;
         let target = this.activeIndex;
-
         if (this._curY < -threshold) target = Math.min(this.activeIndex + 1, this.tracks.length - 1);
         else if (this._curY > threshold) target = Math.max(this.activeIndex - 1, 0);
-
         if (this._curY < -threshold && this.activeIndex === this.tracks.length - 1) {
           this.dispatchEvent(new CustomEvent('need-more-tracks', { bubbles: true, composed: true }));
         }
-
         this.activeIndex = target;
-        this._wrapper.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+        this._wrapper.style.transition = 'transform .4s cubic-bezier(.16,1,.3,1)';
         this._wrapper.style.transform = `translateY(${-(target * window.innerHeight)}px)`;
-        
-        // Управление аудио
         this.cards.forEach((card, i) => {
-          if (i === this.activeIndex) {
-            if (this._unlocked) card.play().catch(()=>{});
-          } else {
-            card.reset();
-          }
+          if (i === this.activeIndex) { if (this._unlocked) card.play().catch(() => {}); }
+          else { card.reset(); }
         });
         this._curY = 0;
       }
     }
     customElements.define('discovery-feed', DiscoveryFeed);
 
-    // --- СТРАНИЦА: Контроллер данных и API ---
+    // --- СТРАНИЦА: Прямой iTunes API без прокси ---
     class DiscoApp {
       constructor() {
         this.root = document.getElementById('app-root');
-        this.feed = null;
         this.isLoading = false;
         this.seen = new Set();
-        
-        // База поисковых терминов для бесконечной ленты
         this.terms = [
           'taylor swift', 'the weeknd', 'billie eilish', 'drake', 'dua lipa',
           'bad bunny', 'coldplay', 'daft punk', 'michael jackson', 'eminem',
           'rihanna', 'kanye west', 'queen', 'nirvana', 'linkin park',
-          'arctic monkeys', 'tame impala', 'frank ocean', 'sza', 'post malone',
-          'travis scott', 'tyler the creator', 'lana del rey', 'kendrick lamar'
+          'arctic monkeys', 'tame impala', 'frank ocean', 'sza', 'post malone'
         ];
-        this.termIndex = 0;
-        this.offset = 0;
-        this.LIMIT = 20;
+        this.termIndex = 0; this.offset = 0; this.LIMIT = 15;
       }
-
       init() {
         this.feed = document.createElement('discovery-feed');
         this.root.appendChild(this.feed);
         this.feed.addEventListener('need-more-tracks', () => this.loadNextBatch());
         this.loadNextBatch();
       }
-
       async loadNextBatch() {
         if (this.isLoading) return;
         this.isLoading = true;
-
         try {
-          const tracks = await this._fetch();
-          this.feed.appendTracks(tracks);
+          let tracks = await this._fetch();
+          // Если первый запрос упал или вернул дубликаты — одна повторная попытка через 800мс
+          if (tracks.length === 0) {
+            await new Promise(r => setTimeout(r, 800));
+            tracks = await this._fetch();
+          }
+          if (tracks.length > 0) {
+            this.feed.appendTracks(tracks);
+          }
         } catch (e) {
           console.error('Load error:', e);
         } finally {
           this.isLoading = false;
         }
       }
-
+      // ОДИН запрос за раз. Никаких while циклов.
       async _fetch() {
-        const collected = [];
-        
-        // Пытаемся собрать LIMIT треков (может потребоваться несколько запросов, если треки дубликаты)
-        while (collected.length < this.LIMIT) {
-          const term = this.terms[this.termIndex];
-          const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&entity=song&limit=30&offset=${this.offset}&country=us`;
-          
-          try {
-            const res = await fetch(url);
-            const data = await res.json();
-            const results = data.results || [];
-            
-            for (const t of results) {
-              if (!t.previewUrl || !t.artworkUrl100) continue;
-              if (this.seen.has(t.trackId)) continue;
-              
-              this.seen.add(t.trackId);
-              collected.push({
-                id: t.trackId,
-                name: t.trackName,
-                artist: t.artistName,
-                album: t.collectionName,
-                image: t.artworkUrl100.replace('100x100bb', '600x600bb'),
-                previewUrl: t.previewUrl,
-                storeUrl: t.trackViewUrl,
-                genres: t.primaryGenreName ? [t.primaryGenreName] : [],
-                likeCount: Math.floor(Math.random() * 5000) + 500 // Фейковые лайки для визуала
-              });
-              
-              if (collected.length >= this.LIMIT) break;
-            }
+        const term = this.terms[this.termIndex];
+        const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&entity=song&limit=25&offset=${this.offset}&country=us`;
 
-            // Логика бесконечного скролла:
-            // Если получили пустую пачку или достигли лимита API (200), меняем термин
-            if (results.length < 30 || this.offset >= 200) {
-              this.termIndex = (this.termIndex + 1) % this.terms.length;
-              this.offset = 0;
-            } else {
-              this.offset += 30;
-            }
+        try {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          const results = data.results || [];
 
-          } catch (err) {
-            console.warn('Fetch failed, switching term', err);
+          const collected = [];
+          for (const t of results) {
+            if (!t.previewUrl || !t.artworkUrl100) continue;
+            if (this.seen.has(t.trackId)) continue;
+            this.seen.add(t.trackId);
+            collected.push({
+              id: t.trackId,
+              name: t.trackName,
+              artist: t.artistName,
+              album: t.collectionName,
+              image: t.artworkUrl100.replace('100x100bb', '600x600bb'),
+              previewUrl: t.previewUrl,
+              storeUrl: t.trackViewUrl,
+              genres: t.primaryGenreName ? [t.primaryGenreName] : [],
+              likeCount: Math.floor(Math.random() * 5000) + 500
+            });
+          }
+
+          // Ротация: если получили мало или исчерпали offset — меняем термин
+          if (results.length < 25 || this.offset >= 200) {
             this.termIndex = (this.termIndex + 1) % this.terms.length;
             this.offset = 0;
+          } else {
+            this.offset += 25;
           }
+
+          return collected;
+        } catch (err) {
+          console.warn(`[API] Ошибка (${term}):`, err.message);
+          // Меняем термин, чтобы не застрять на проблемном
+          this.termIndex = (this.termIndex + 1) % this.terms.length;
+          this.offset = 0;
+          return [];
         }
-        return collected;
       }
     }
-
-    // Запуск
-    window.addEventListener('DOMContentLoaded', () => {
-      const app = new DiscoApp();
-      app.init();
-    });
+    window.addEventListener('DOMContentLoaded', () => new DiscoApp().init());
   </script>
 </body>
 </html>
