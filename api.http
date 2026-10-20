@@ -1,0 +1,16 @@
+###
+GET https://itunes.apple.com/search?term=limp&media=music&entity=song&limit=25&offset=0&country=us
+accept: */*
+accept-language: en-US,en;q=0.9,ru;q=0.8
+cache-control: no-cache
+origin: https://pwrmind.github.io
+pragma: no-cache
+priority: u=1, i
+referer: https://pwrmind.github.io/
+sec-ch-ua: "Microsoft Edge";v="155", "Chromium";v="155", "Not(A:Brand";v="24"
+sec-ch-ua-mobile: ?1
+sec-ch-ua-platform: "Android"
+sec-fetch-dest: empty
+sec-fetch-mode: cors
+sec-fetch-site: cross-site
+user-agent: Mozilla/5.0 (Linux; Android 14; Pixel 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Edg/155.0.0.0 Mobile Safari/537.36'
