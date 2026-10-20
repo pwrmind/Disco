@@ -184,8 +184,8 @@
 
   <div class="empty-state" id="empty-state">
     <div class="icon">🔍</div>
-    <div class="title" id="empty-title">Ничего не найдено</div>
-    <div class="subtitle" id="empty-subtitle">Попробуйте изменить запрос.</div>
+    <div class="title" id="empty-title">Введите запрос</div>
+    <div class="subtitle" id="empty-subtitle">Нажмите на лупу вверху и введите название трека или исполнителя.</div>
     <button class="retry-btn" id="retry-btn">Повторить</button>
   </div>
 
@@ -212,7 +212,6 @@ const Debug = (function () {
     <div class="dbg-head">
       <strong>Debug</strong>
       <span class="dbg-status" id="dbg-status">—</span>
-      <button id="dbg-diag" class="primary">Diagnose</button>
       <button id="dbg-copy">Copy</button>
       <button id="dbg-clear">Clear</button>
       <button id="dbg-close">✕</button>
@@ -262,7 +261,6 @@ const Debug = (function () {
     document.body.appendChild(btn);
     document.body.appendChild(panel);
     logArea = document.getElementById('dbg-log');
-
     btn.addEventListener('click', toggle);
     document.getElementById('dbg-close').addEventListener('click', toggle);
     document.getElementById('dbg-copy').addEventListener('click', () => {
@@ -279,12 +277,6 @@ const Debug = (function () {
       entries.length = 0; errorCount = 0; logArea.innerHTML = '';
       btn.classList.remove('has-errors'); btn.textContent = '🐞';
     });
-    document.getElementById('dbg-diag').addEventListener('click', () => {
-      if (typeof window.__diagnose === 'function') window.__diagnose();
-    });
-    add('info', ['UA:', navigator.userAgent]);
-    add('info', ['URL:', location.href]);
-    add('info', ['Online:', navigator.onLine, '| Viewport:', innerWidth + 'x' + innerHeight]);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
@@ -320,7 +312,6 @@ const ICONS = {
   close: 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
   external: 'M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z',
   play: 'M8 5v14l11-7z',
-  pause: 'M6 19h4V5H6v14zm8-14v14h4V5h-4z',
 };
 const svg = (n, s = 24, f = '#fff') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="${f}" xmlns="http://www.w3.org/2000/svg"><path d="${ICONS[n] || ''}"/></svg>`;
 
@@ -329,7 +320,7 @@ let likedTracks = JSON.parse(localStorage.getItem('disco_liked_tracks') || '[]')
 let activeIndex = 0;
 let currentView = 'feed';
 let tracks = feedTracks;
-let currentQuery = 'taylor swift';
+let currentQuery = '';
 let requestSeq = 0;
 let currentAudio = null;
 let jsonpCounter = 0;
@@ -366,119 +357,95 @@ function stopAllAudio() {
   });
 }
 
-/* ---------- JSONP ---------- */
-function jsonpFetch(url, timeoutMs = 4000) {
+/* =========================================================
+   JSONP — единственный транспорт, как рекомендует Apple
+   ========================================================= */
+function jsonp(url, timeoutMs = 15000) {
   return new Promise((resolve, reject) => {
     const cbName = 'itunesJsonp_' + (++jsonpCounter) + '_' + Date.now();
     let done = false;
+
     window[cbName] = (data) => {
       if (done) return; done = true;
-      Debug.success('jsonp:', 'callback fired');
+      Debug.success('jsonp:', 'callback fired, resultCount =', data && data.resultCount);
       cleanup(); resolve(data);
     };
+
     function cleanup() {
       if (script.parentNode) script.parentNode.removeChild(script);
       try { delete window[cbName]; } catch (_) { window[cbName] = undefined; }
     }
+
     const script = document.createElement('script');
     const fullUrl = url + (url.includes('?') ? '&' : '?') + 'callback=' + cbName;
     script.src = fullUrl;
-    Debug.info('jsonp:', 'src:', fullUrl.slice(0, 150) + '…');
+    Debug.info('jsonp:', 'GET', fullUrl);
+
     script.onerror = () => {
       if (done) return; done = true;
-      Debug.warn('jsonp:', 'script.onerror — likely blocked by iOS ITP');
+      Debug.error('jsonp:', 'script.onerror');
       cleanup(); reject(new Error('Script load error'));
     };
+
     document.body.appendChild(script);
+
     setTimeout(() => {
       if (done) return; done = true;
-      Debug.warn('jsonp:', 'TIMEOUT', timeoutMs, 'ms');
+      Debug.error('jsonp:', 'TIMEOUT', timeoutMs, 'ms');
       cleanup(); reject(new Error('Timeout'));
     }, timeoutMs);
   });
 }
 
-function parseAppleTracks(data) {
+function parseTracks(data) {
   const results = (data && data.results) || [];
   const collected = [];
   for (const t of results) {
     if (!t.previewUrl || !t.artworkUrl100) continue;
     collected.push({
-      id: t.trackId, name: t.trackName, artist: t.artistName, album: t.collectionName,
+      id: t.trackId,
+      name: t.trackName || t.collectionName || 'Без названия',
+      artist: t.artistName || '',
+      album: t.collectionName || '',
       image: t.artworkUrl100.replace('100x100bb', '600x600bb'),
-      previewUrl: t.previewUrl, storeUrl: t.trackViewUrl,
+      previewUrl: t.previewUrl,
+      storeUrl: t.trackViewUrl || '#',
       genres: t.primaryGenreName ? [t.primaryGenreName] : ['Music'],
       likeCount: Math.floor(Math.random() * 5000) + 500,
     });
   }
+  Debug.info('parse:', 'total', results.length, '| usable', collected.length);
   return collected;
 }
 
-async function fetchFromDeezer() {
-  const url = 'https://api.deezer.com/search?q=' + encodeURIComponent(currentQuery) + '&limit=50';
-  Debug.info('deezer:', 'attempting', url);
-  const controller = new AbortController();
-  const tid = setTimeout(() => controller.abort(), 8000);
-  const res = await fetch(url, { signal: controller.signal });
-  clearTimeout(tid);
-  Debug.info('deezer:', 'status', res.status);
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  const data = await res.json();
-  const results = data.data || [];
-  Debug.info('deezer:', 'resultCount', results.length);
-  const collected = [];
-  for (const t of results) {
-    if (!t.preview || !t.album || !t.album.cover_big) continue;
-    collected.push({
-      id: 'dz_' + t.id, name: t.title, artist: t.artist.name, album: t.album.title,
-      image: t.album.cover_big || t.album.cover_medium,
-      previewUrl: t.preview, storeUrl: t.link,
-      genres: ['Music'],
-      likeCount: Math.floor(Math.random() * 5000) + 500,
-    });
-  }
-  Debug.success('deezer:', 'usable tracks:', collected.length);
-  return collected;
-}
-
-async function fetchTracks() {
-  const baseUrl = 'https://itunes.apple.com/search?' +
-    'term=' + encodeURIComponent(currentQuery) +
-    '&media=music&entity=song&limit=50&country=us';
+/* =========================================================
+   Запрос — строго по документации Apple
+   =========================================================
+   - Только JSONP (динамический script tag)
+   - term кодируется encodeURIComponent (пробелы → %20, допустимо)
+   - entity=song
+   - limit=25 (в пределах 1–200, меньше нагрузки)
+   - country=US (ISO-код в верхнем регистре)
+   - БЕЗ media (необязательный параметр, убран для соответствия
+     рабочему примеру и снижения риска блокировки)
+   - Один запрос на поиск, без каскадов и повторных попыток
+   ========================================================= */
+async function fetchTracks(term) {
+  const url =
+    'https://itunes.apple.com/search' +
+    '?term=' + encodeURIComponent(term) +
+    '&entity=song' +
+    '&limit=25' +
+    '&country=US';
 
   Debug.status('loading…');
-  Debug.info('fetchTracks:', 'query =', JSON.stringify(currentQuery));
-
-  try {
-    const data = await jsonpFetch(baseUrl, 4000);
-    const parsed = parseAppleTracks(data);
-    if (parsed.length > 0) { Debug.success('fetchTracks:', 'JSONP OK'); return parsed; }
-  } catch (e) { Debug.warn('fetchTracks:', 'JSONP failed:', e.message); }
-
-  try {
-    Debug.info('apple-fetch:', 'attempting');
-    const controller = new AbortController();
-    const tid = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(baseUrl, { signal: controller.signal, cache: 'no-store', credentials: 'omit' });
-    clearTimeout(tid);
-    Debug.info('apple-fetch:', 'status', res.status);
-    if (res.ok) {
-      const data = await res.json();
-      const parsed = parseAppleTracks(data);
-      if (parsed.length > 0) { Debug.success('fetchTracks:', 'Apple fetch OK'); return parsed; }
-    }
-  } catch (e) { Debug.warn('apple-fetch:', 'failed:', e.name, '/', e.message); }
-
-  try {
-    const deezerTracks = await fetchFromDeezer();
-    if (deezerTracks.length > 0) { Debug.success('fetchTracks:', 'DEEZER OK'); return deezerTracks; }
-  } catch (e) { Debug.error('deezer:', 'failed:', e.name, '/', e.message); }
-
-  Debug.error('fetchTracks:', 'ALL STRATEGIES FAILED');
-  throw new Error('All strategies failed');
+  const data = await jsonp(url, 15000);
+  return parseTracks(data);
 }
 
-/* ---------- Card ---------- */
+/* =========================================================
+   Card
+   ========================================================= */
 function createCard(track, position) {
   const card = document.createElement('div');
   card.className = 'track-card';
@@ -498,10 +465,10 @@ function createCard(track, position) {
       </div>
       <div class="bottom">
         <div class="info">
-          <div class="title">${track.name}</div>
-          <div class="artist">${track.artist}</div>
-          <div class="album">${track.album || ''}</div>
-          <div class="tag">#${track.genres[0] || 'Music'}</div>
+          <div class="title">${escapeHtml(track.name)}</div>
+          <div class="artist">${escapeHtml(track.artist)}</div>
+          <div class="album">${escapeHtml(track.album)}</div>
+          <div class="tag">#${escapeHtml(track.genres[0] || 'Music')}</div>
           <a class="store" href="${track.storeUrl}" target="_blank" rel="noopener">
             ${svg('external', 14, '#000')} Слушать полностью
           </a>
@@ -555,11 +522,8 @@ function createCard(track, position) {
   const centerEl = card.querySelector('.center');
 
   function updatePlayState() {
-    if (audio.paused) {
-      centerEl.classList.add('paused');
-    } else {
-      centerEl.classList.remove('paused');
-    }
+    if (audio.paused) centerEl.classList.add('paused');
+    else centerEl.classList.remove('paused');
   }
 
   audio.addEventListener('play', updatePlayState);
@@ -592,15 +556,11 @@ function createCard(track, position) {
   }
 
   const togglePlay = () => {
-    if (!audio.paused) {
-      audio.pause();
-      return;
-    }
+    if (!audio.paused) { audio.pause(); return; }
     if (currentAudio && currentAudio !== audio) {
       try { currentAudio.pause(); currentAudio.currentTime = 0; } catch (_) {}
     }
     currentAudio = audio;
-
     if (audio.currentTime === 0) {
       audio.volume = 0;
       audio.play().then(() => fadeAudio(0, 1, 400)).catch(e => {
@@ -613,9 +573,6 @@ function createCard(track, position) {
     }
   };
 
-  card.togglePlay = togglePlay;
-
-  /* TAP на карточку — play/pause. Игнор клика по кнопкам и ссылкам. */
   card.querySelector('.content').addEventListener('click', (e) => {
     if (e.target.closest('a,button')) return;
     togglePlay();
@@ -627,14 +584,12 @@ function createCard(track, position) {
     if (wasLiked) likedTracks = likedTracks.filter(t => t.id !== track.id);
     else likedTracks.push(track);
     localStorage.setItem('disco_liked_tracks', JSON.stringify(likedTracks));
-
     const nowLiked = !wasLiked;
     likeBtn.classList.toggle('active', nowLiked);
     const ico = likeBtn.querySelector('svg');
     if (ico) ico.style.fill = nowLiked ? '#ff2d55' : '#fff';
     const cnt = likeBtn.querySelector('.count');
     if (cnt) cnt.textContent = fmt((track.likeCount || 0) + (nowLiked ? 1 : 0));
-
     if (currentView === 'liked' && wasLiked) {
       tracks = likedTracks;
       if (tracks.length === 0) {
@@ -650,7 +605,6 @@ function createCard(track, position) {
   const sheet = card.querySelector('.comments-sheet');
   const sheetEl = card.querySelector('.sheet');
   const handle = card.querySelector('.handle');
-
   const openSheet = () => {
     sheet.setAttribute('opened', 'true');
     card.dataset.sheetOpen = 'true';
@@ -724,18 +678,21 @@ function createCard(track, position) {
   return card;
 }
 
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 function renderWindow() {
   stopAllAudio();
   if (tracks.length === 0) { feedContainer.innerHTML = ''; return; }
   feedContainer.innerHTML = '';
-
   const prevIndex = activeIndex - 1;
   const nextIndex = activeIndex + 1;
-
   if (prevIndex >= 0) feedContainer.appendChild(createCard(tracks[prevIndex], -1));
   feedContainer.appendChild(createCard(tracks[activeIndex], 0));
   if (nextIndex < tracks.length) feedContainer.appendChild(createCard(tracks[nextIndex], 1));
-  // Не запускаем аудио автоматически — ждём тап пользователя
 }
 
 function showEmpty(title, subtitle, isError) {
@@ -750,22 +707,19 @@ function setView(view) {
   stopAllAudio();
   currentView = view;
   if (view === 'feed') {
-    tabFeed.classList.add('active');
-    tabLiked.classList.remove('active');
+    tabFeed.classList.add('active'); tabLiked.classList.remove('active');
     tracks = feedTracks;
   } else {
-    tabLiked.classList.add('active');
-    tabFeed.classList.remove('active');
+    tabLiked.classList.add('active'); tabFeed.classList.remove('active');
     tracks = likedTracks;
   }
   activeIndex = 0;
   loadingEl.classList.remove('active');
   emptyStateEl.classList.remove('active');
-
   if (tracks.length === 0) {
     showEmpty(
-      view === 'feed' ? 'Ничего не найдено' : 'Нет избранных треков',
-      view === 'feed' ? 'Попробуйте изменить запрос.' : 'Добавьте треки в избранное, чтобы они появились здесь.',
+      view === 'feed' ? 'Введите запрос' : 'Нет избранных треков',
+      view === 'feed' ? 'Нажмите на лупу вверху и введите название.' : 'Добавьте треки в избранное.',
       false
     );
     return;
@@ -782,11 +736,12 @@ async function runSearch(query) {
   const mySeq = ++requestSeq;
   let newTracks = null;
   try {
-    newTracks = await fetchTracks();
+    newTracks = await fetchTracks(query);
   } catch (e) {
     if (mySeq !== requestSeq) return;
     loadingEl.classList.remove('active');
-    showEmpty('Ошибка сети', 'Не удалось загрузить треки. Откройте 🐞 для деталей.', true);
+    Debug.error('runSearch:', 'failed:', e.message);
+    showEmpty('Ошибка запроса', 'Не удалось получить данные от Apple. Откройте 🐞 для деталей.', true);
     return;
   }
 
@@ -807,7 +762,7 @@ async function runSearch(query) {
   stopAllAudio();
 
   if (tracks.length === 0) {
-    showEmpty('Ничего не найдено', 'По запросу «' + query + '» ничего не найдено.', true);
+    showEmpty('Ничего не найдено', 'По запросу «' + query + '» ничего не найдено. Попробуйте изменить запрос.', true);
   } else {
     renderWindow();
   }
@@ -846,10 +801,7 @@ const onSwipeStart = (e) => {
   const card = feedContainer.querySelector('.track-card[data-position="0"]');
   if (card && card.dataset.sheetOpen) return;
   const y = e.touches ? e.touches[0].clientY : e.clientY;
-  swipeStartY = y;
-  swipeCurrentY = 0;
-  isSwiping = true;
-  swipeStartTime = Date.now();
+  swipeStartY = y; swipeCurrentY = 0; isSwiping = true; swipeStartTime = Date.now();
   feedContainer.style.transition = 'none';
 };
 const onSwipeMove = (e) => {
@@ -859,7 +811,6 @@ const onSwipeMove = (e) => {
   if ((activeIndex === 0 && d > 0) || (activeIndex === tracks.length - 1 && d < 0)) d *= 0.2;
   swipeCurrentY = d;
   feedContainer.style.transform = `translateY(${d}px)`;
-  // Не блокируем click для микро-движений (иначе tap не сработает)
   if (Math.abs(d) > 8 && e.cancelable) e.preventDefault();
 };
 const onSwipeEnd = () => {
@@ -870,7 +821,6 @@ const onSwipeEnd = () => {
   const threshold = cardHeight * swipeThreshold;
   const goNext = (swipeCurrentY < -threshold || (isFastFlick && swipeCurrentY < 0)) && activeIndex < tracks.length - 1;
   const goPrev = (swipeCurrentY > threshold || (isFastFlick && swipeCurrentY > 0)) && activeIndex > 0;
-
   if (goNext) {
     feedContainer.style.transition = 'transform .35s cubic-bezier(0.25, 1, 0.5, 1)';
     feedContainer.style.transform = `translateY(-100%)`;
@@ -897,29 +847,7 @@ window.addEventListener('mouseup', () => {
   if (isMouseDown) { isMouseDown = false; onSwipeEnd(); }
 });
 
-/* ---------- Diagnose ---------- */
-window.__diagnose = async function () {
-  Debug.info('=== DIAGNOSE START ===');
-  const urls = [
-    ['Apple-base', 'https://itunes.apple.com/search?term=test&limit=1'],
-    ['Apple-song', 'https://itunes.apple.com/search?term=taylor+swift&media=music&entity=song&limit=1'],
-    ['Deezer', 'https://api.deezer.com/search?q=taylor+swift&limit=1'],
-  ];
-  for (const [name, url] of urls) {
-    try {
-      const t0 = performance.now();
-      const res = await fetch(url, { cache: 'no-store' });
-      const t1 = performance.now();
-      const text = await res.text();
-      Debug.net('DIAG:', `[${name}] ${res.status} ${(t1 - t0).toFixed(0)}ms len=${text.length}`);
-    } catch (e) {
-      Debug.error('DIAG:', `[${name}] FAILED:`, e.name, e.message);
-    }
-  }
-  Debug.info('=== DIAGNOSE END ===');
-};
-
-/* ---------- Start ---------- */
+/* ---------- Start: БЕЗ автозапуска ---------- */
 window.addEventListener('DOMContentLoaded', () => {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.getRegistrations().then(regs => {
@@ -927,7 +855,7 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
   updateHeight();
-  runSearch(currentQuery);
+  showEmpty('Введите запрос', 'Нажмите на лупу вверху и введите название трека или исполнителя.', false);
 });
 </script>
 </body>
