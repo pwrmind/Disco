@@ -24,13 +24,7 @@
     }
     #app-root { position: relative; width: 100vw; height: 100vh; height: 100dvh; overflow: hidden; }
 
-    /* HUD */
-    .hud {
-      position: absolute; top: 0; left: 0; right: 0;
-      padding: calc(16px + env(safe-area-inset-top)) 20px 16px;
-      display: flex; justify-content: space-between; align-items: center;
-      z-index: 10; pointer-events: none;
-    }
+    .hud { position: absolute; top: 0; left: 0; right: 0; padding: calc(16px + env(safe-area-inset-top)) 20px 16px; display: flex; justify-content: space-between; align-items: center; z-index: 10; pointer-events: none; }
     .brand { font-size: 22px; font-weight: 800; letter-spacing: -.5px; display: flex; align-items: center; gap: 8px; text-shadow: 0 2px 4px rgba(0,0,0,.5); transition: opacity .2s; }
     .dot { width: 10px; height: 10px; border-radius: 50%; background: #1DB954; box-shadow: 0 0 10px #1DB954; }
     .tabs { display: flex; gap: 20px; font-size: 15px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,.5); transition: opacity .2s; }
@@ -38,44 +32,42 @@
     .tab.active { color: #fff; }
     .search-icon { pointer-events: auto; cursor: pointer; padding: 8px; margin-right: -8px; background: none; border: none; color: white; }
 
-    /* Search bar */
-    .search-bar {
-      position: absolute; top: calc(12px + env(safe-area-inset-top)); left: 20px; right: 20px;
-      display: flex; align-items: center; gap: 8px; z-index: 50;
-      opacity: 0; pointer-events: none; transform: translateY(-10px);
-      transition: all .3s cubic-bezier(.16,1,.3,1);
-    }
+    .search-bar { position: absolute; top: calc(12px + env(safe-area-inset-top)); left: 20px; right: 20px; display: flex; align-items: center; gap: 8px; z-index: 50; opacity: 0; pointer-events: none; transform: translateY(-10px); transition: all .3s cubic-bezier(.16,1,.3,1); }
     .search-bar.active { opacity: 1; pointer-events: auto; transform: translateY(0); }
     .search-form { flex: 1; position: relative; display: flex; align-items: center; margin: 0; min-width: 0; }
     .search-form svg { position: absolute; left: 12px; fill: #888; pointer-events: none; }
-    .search-bar input {
-      width: 100%; background: rgba(40,40,40,.8); backdrop-filter: blur(15px);
-      border: none; border-radius: 12px; padding: 12px 12px 12px 40px;
-      color: #fff; font-size: 16px; outline: none; font-family: inherit;
-      -webkit-appearance: none; appearance: none;
-    }
+    .search-bar input { width: 100%; background: rgba(40,40,40,.8); backdrop-filter: blur(15px); border: none; border-radius: 12px; padding: 12px 12px 12px 40px; color: #fff; font-size: 16px; outline: none; font-family: inherit; -webkit-appearance: none; appearance: none; }
     .search-bar input::-webkit-search-cancel-button { display: none; }
     .search-bar input::placeholder { color: #888; }
-    .search-submit {
-      color: #000; font-weight: 700; font-size: 14px;
-      background: #1DB954; border: none; border-radius: 10px;
-      padding: 11px 16px; cursor: pointer; white-space: nowrap;
-    }
+    .search-submit { color: #000; font-weight: 700; font-size: 14px; background: #1DB954; border: none; border-radius: 10px; padding: 11px 16px; cursor: pointer; white-space: nowrap; }
     .search-submit:active { background: #1aa84b; }
     .cancel-btn { color: #fff; font-weight: 600; font-size: 15px; cursor: pointer; padding: 8px 0; background: none; border: none; white-space: nowrap; }
-
     .hud.searching .brand, .hud.searching .tabs, .hud.searching .search-icon { opacity: 0; pointer-events: none; }
 
-    /* Feed */
     .feed-container { width: 100%; height: 100%; position: relative; will-change: transform; touch-action: none; }
 
-    /* Track Card */
     .track-card { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; background: #000; display: block; }
     .track-card .bg { position: absolute; inset: -20px; background-size: cover; background-position: center; filter: blur(40px) brightness(.35) saturate(1.2); transform: scale(1.1); z-index: 0; }
     .track-card .gradient { position: absolute; inset: 0; z-index: 1; background: linear-gradient(to bottom, rgba(0,0,0,.2) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,.85) 100%); }
     .track-card .content { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; padding: 80px 20px calc(20px + env(safe-area-inset-bottom)); }
-    .track-card .center { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; padding: 20px 0; }
+    .track-card .center { position: relative; flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; padding: 20px 0; }
     .track-card .cover { max-width: 100%; max-height: 100%; aspect-ratio: 1; border-radius: 16px; box-shadow: 0 15px 40px rgba(0,0,0,.5); object-fit: cover; }
+    .track-card .play-hint {
+      position: absolute; top: 50%; left: 50%;
+      width: 72px; height: 72px; border-radius: 50%;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: none;
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.9);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      z-index: 5;
+    }
+    .track-card .center.paused .play-hint {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
     .track-card .bottom { display: flex; justify-content: space-between; align-items: flex-end; width: 100%; gap: 16px; }
     .track-card .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
     .track-card .title { font-size: 24px; font-weight: 800; letter-spacing: -.5px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -85,18 +77,15 @@
     .track-card .store { display: inline-flex; align-items: center; gap: 6px; background: #fff; color: #000; text-decoration: none; padding: 10px 16px; border-radius: 20px; font-size: 13px; font-weight: 700; width: fit-content; margin-top: 4px; }
     .track-card .sidebar { display: flex; flex-direction: column; gap: 20px; align-items: center; flex-shrink: 0; }
 
-    /* Action Buttons */
     .action-btn { display: flex; flex-direction: column; align-items: center; cursor: pointer; background: none; border: none; padding: 0; color: white; }
     .action-btn .btn-icon { width: 48px; height: 48px; border-radius: 50%; background: rgba(30,30,30,.5); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; transition: transform .15s ease; }
     .action-btn:active .btn-icon { transform: scale(.9); background: rgba(50,50,50,.8); }
     .action-btn .count { font-size: 12px; font-weight: 600; margin-top: 6px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
     .action-btn.active .btn-icon svg { fill: #ff2d55; }
 
-    /* Progress bar */
     .audio-progress { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: rgba(255,255,255,.25); z-index: 3; }
     .audio-progress .fill { height: 100%; width: 0%; background: #fff; transition: width .1s linear; }
 
-    /* Comments Sheet */
     .comments-sheet { position: absolute; inset: 0; z-index: 100; pointer-events: none; }
     .comments-sheet[opened="true"] { pointer-events: auto; }
     .comments-sheet .backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.4); opacity: 0; transition: opacity .3s; backdrop-filter: blur(4px); }
@@ -117,7 +106,6 @@
     .comments-sheet input { flex: 1; background: #2c2c2e; border: none; padding: 12px 16px; border-radius: 20px; color: #fff; font-size: 15px; outline: none; }
     .comments-sheet .send { background: #fff; color: #000; border: none; padding: 0 20px; border-radius: 20px; font-weight: 600; font-size: 14px; cursor: pointer; }
 
-    /* Loading & Empty */
     .loading { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 20; pointer-events: none; }
     .loading.active { display: flex; opacity: 1; }
     .spinner { width: 32px; height: 32px; border: 3px solid rgba(255,255,255,.1); border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite; }
@@ -133,68 +121,34 @@
 
     svg { display: block; }
 
-    /* ---- DEBUG PANEL ---- */
     #debug-btn {
-      position: fixed;
-      bottom: calc(12px + env(safe-area-inset-bottom));
-      right: 12px;
+      position: fixed; bottom: calc(12px + env(safe-area-inset-bottom)); right: 12px;
       width: 30px; height: 30px; border-radius: 50%;
-      background: rgba(255,255,255,0.15);
-      color: rgba(255,255,255,0.5);
-      border: 1px solid rgba(255,255,255,0.15);
-      font-size: 13px;
-      z-index: 99998;
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      opacity: 0.5;
-      transition: opacity 0.2s, background 0.2s;
-      font-family: inherit;
+      background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.5);
+      border: 1px solid rgba(255,255,255,0.15); font-size: 13px;
+      z-index: 99998; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      opacity: 0.5; transition: opacity 0.2s, background 0.2s; font-family: inherit;
     }
-    #debug-btn.has-errors {
-      background: rgba(255,45,85,0.85);
-      color: #fff;
-      opacity: 1;
-      animation: dbg-pulse 1.4s infinite;
-    }
-    @keyframes dbg-pulse {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.12); }
-    }
+    #debug-btn.has-errors { background: rgba(255,45,85,0.85); color: #fff; opacity: 1; animation: dbg-pulse 1.4s infinite; }
+    @keyframes dbg-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+
     #debug-panel {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      height: 50vh;
-      background: rgba(8,8,10,0.97);
-      color: #fff;
+      position: fixed; bottom: 0; left: 0; right: 0; height: 50vh;
+      background: rgba(8,8,10,0.97); color: #fff;
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
       font-size: 10px; line-height: 1.35;
-      z-index: 99997;
-      display: none;
-      flex-direction: column;
-      border-top: 1px solid #1DB954;
-      padding-bottom: env(safe-area-inset-bottom);
+      z-index: 99997; display: none; flex-direction: column;
+      border-top: 1px solid #1DB954; padding-bottom: env(safe-area-inset-bottom);
       backdrop-filter: blur(10px);
     }
     #debug-panel.open { display: flex; }
-    #debug-panel .dbg-head {
-      display: flex; gap: 6px; padding: 8px; border-bottom: 1px solid #222;
-      align-items: center; flex-shrink: 0;
-    }
+    #debug-panel .dbg-head { display: flex; gap: 6px; padding: 8px; border-bottom: 1px solid #222; align-items: center; flex-shrink: 0; }
     #debug-panel .dbg-head strong { color: #1DB954; font-size: 11px; }
     #debug-panel .dbg-status { flex: 1; color: #666; font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    #debug-panel .dbg-head button {
-      background: #222; color: #fff; border: none; border-radius: 4px;
-      padding: 5px 9px; font-size: 10px; font-weight: 600; cursor: pointer;
-      font-family: inherit;
-    }
+    #debug-panel .dbg-head button { background: #222; color: #fff; border: none; border-radius: 4px; padding: 5px 9px; font-size: 10px; font-weight: 600; cursor: pointer; font-family: inherit; }
     #debug-panel .dbg-head button.primary { background: #1DB954; color: #000; }
-    #debug-panel .dbg-log {
-      flex: 1; overflow-y: auto; padding: 6px 8px;
-      -webkit-overflow-scrolling: touch;
-    }
-    #debug-panel .dbg-row {
-      padding: 2px 0; word-break: break-all; white-space: pre-wrap;
-      border-bottom: 1px solid rgba(255,255,255,0.03);
-    }
+    #debug-panel .dbg-log { flex: 1; overflow-y: auto; padding: 6px 8px; -webkit-overflow-scrolling: touch; }
+    #debug-panel .dbg-row { padding: 2px 0; word-break: break-all; white-space: pre-wrap; border-bottom: 1px solid rgba(255,255,255,0.03); }
     #debug-panel .dbg-row .ts { color: #555; }
     #debug-panel .dbg-row.info  { color: #aaa; }
     #debug-panel .dbg-row.success { color: #1DB954; }
@@ -251,7 +205,6 @@ const Debug = (function () {
   const btn = document.createElement('button');
   btn.id = 'debug-btn';
   btn.textContent = '🐞';
-  btn.title = 'Открыть дебаг-панель';
 
   const panel = document.createElement('div');
   panel.id = 'debug-panel';
@@ -266,7 +219,6 @@ const Debug = (function () {
     </div>
     <div class="dbg-log" id="dbg-log"></div>
   `;
-
   let logArea;
 
   function add(type, args) {
@@ -302,14 +254,9 @@ const Debug = (function () {
   }
 
   function escapeHtml(s) {
-    return String(s)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
-
-  function toggle() {
-    panelOpen = !panelOpen;
-    panel.classList.toggle('open', panelOpen);
-  }
+  function toggle() { panelOpen = !panelOpen; panel.classList.toggle('open', panelOpen); }
 
   function mount() {
     document.body.appendChild(btn);
@@ -318,7 +265,6 @@ const Debug = (function () {
 
     btn.addEventListener('click', toggle);
     document.getElementById('dbg-close').addEventListener('click', toggle);
-
     document.getElementById('dbg-copy').addEventListener('click', () => {
       const text = entries.map(e => `[${e.ts}] ${e.type.toUpperCase()}: ${e.msg}`).join('\n');
       if (navigator.clipboard) {
@@ -327,34 +273,22 @@ const Debug = (function () {
           b.textContent = '✓ Copied';
           setTimeout(() => { b.textContent = 'Copy'; }, 1200);
         }).catch(() => alert('Не удалось скопировать'));
-      } else {
-        alert(text);
-      }
+      } else { alert(text); }
     });
-
     document.getElementById('dbg-clear').addEventListener('click', () => {
-      entries.length = 0;
-      errorCount = 0;
-      logArea.innerHTML = '';
-      btn.classList.remove('has-errors');
-      btn.textContent = '🐞';
+      entries.length = 0; errorCount = 0; logArea.innerHTML = '';
+      btn.classList.remove('has-errors'); btn.textContent = '🐞';
     });
-
     document.getElementById('dbg-diag').addEventListener('click', () => {
       if (typeof window.__diagnose === 'function') window.__diagnose();
     });
-
-    // Environment snapshot
     add('info', ['UA:', navigator.userAgent]);
     add('info', ['URL:', location.href]);
     add('info', ['Online:', navigator.onLine, '| Viewport:', innerWidth + 'x' + innerHeight]);
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', mount);
-  } else {
-    mount();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
+  else mount();
 
   return {
     info:    (...a) => add('info', a),
@@ -366,7 +300,6 @@ const Debug = (function () {
   };
 })();
 
-// Перехват console.*
 ['log', 'warn', 'error'].forEach((m) => {
   const orig = console[m];
   console[m] = function (...args) {
@@ -374,12 +307,8 @@ const Debug = (function () {
     if (orig) orig.apply(console, args);
   };
 });
-window.addEventListener('error', (e) => {
-  Debug.error('window.onerror:', e.message, '@', e.filename + ':' + e.lineno + ':' + e.colno);
-});
-window.addEventListener('unhandledrejection', (e) => {
-  Debug.error('unhandledrejection:', String(e.reason));
-});
+window.addEventListener('error', (e) => Debug.error('window.onerror:', e.message, '@', e.filename + ':' + e.lineno + ':' + e.colno));
+window.addEventListener('unhandledrejection', (e) => Debug.error('unhandledrejection:', String(e.reason)));
 
 /* =========================================================
    APP CODE
@@ -389,7 +318,9 @@ const ICONS = {
   comment: 'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z',
   share: 'M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z',
   close: 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
-  external: 'M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z'
+  external: 'M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z',
+  play: 'M8 5v14l11-7z',
+  pause: 'M6 19h4V5H6v14zm8-14v14h4V5h-4z',
 };
 const svg = (n, s = 24, f = '#fff') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="${f}" xmlns="http://www.w3.org/2000/svg"><path d="${ICONS[n] || ''}"/></svg>`;
 
@@ -431,84 +362,85 @@ function stopAllAudio() {
     currentAudio = null;
   }
   feedContainer.querySelectorAll('.track-card').forEach(c => {
-    if (c.audio) {
-      try { c.audio.pause(); c.audio.currentTime = 0; } catch (_) {}
-    }
+    if (c.audio) { try { c.audio.pause(); c.audio.currentTime = 0; } catch (_) {} }
   });
 }
 
 /* ---------- JSONP ---------- */
-function jsonpFetch(url, timeoutMs = 15000) {
+function jsonpFetch(url, timeoutMs = 4000) {
   return new Promise((resolve, reject) => {
     const cbName = 'itunesJsonp_' + (++jsonpCounter) + '_' + Date.now();
     let done = false;
-
     window[cbName] = (data) => {
-      if (done) return;
-      done = true;
-      Debug.success('jsonp:', 'callback fired, type:', typeof data);
-      cleanup();
-      resolve(data);
+      if (done) return; done = true;
+      Debug.success('jsonp:', 'callback fired');
+      cleanup(); resolve(data);
     };
-
     function cleanup() {
       if (script.parentNode) script.parentNode.removeChild(script);
       try { delete window[cbName]; } catch (_) { window[cbName] = undefined; }
     }
-
     const script = document.createElement('script');
     const fullUrl = url + (url.includes('?') ? '&' : '?') + 'callback=' + cbName;
     script.src = fullUrl;
-    Debug.info('jsonp:', 'src:', fullUrl.slice(0, 200) + (fullUrl.length > 200 ? '…' : ''));
+    Debug.info('jsonp:', 'src:', fullUrl.slice(0, 150) + '…');
     script.onerror = () => {
-      if (done) return;
-      done = true;
-      Debug.error('jsonp:', 'script.onerror (network or block)');
-      cleanup();
-      reject(new Error('Script load error'));
-    };
-    script.onload = () => {
-      Debug.info('jsonp:', 'script.onload (waiting for callback)');
+      if (done) return; done = true;
+      Debug.warn('jsonp:', 'script.onerror — likely blocked by iOS ITP');
+      cleanup(); reject(new Error('Script load error'));
     };
     document.body.appendChild(script);
-
     setTimeout(() => {
-      if (done) return;
-      done = true;
-      Debug.error('jsonp:', 'TIMEOUT after', timeoutMs, 'ms — callback never fired');
-      cleanup();
-      reject(new Error('Timeout'));
+      if (done) return; done = true;
+      Debug.warn('jsonp:', 'TIMEOUT', timeoutMs, 'ms');
+      cleanup(); reject(new Error('Timeout'));
     }, timeoutMs);
   });
 }
 
-/* ---------- Parse ---------- */
-function parseTracks(data) {
+function parseAppleTracks(data) {
   const results = (data && data.results) || [];
-  Debug.info('parse:', 'resultCount from API:', data && data.resultCount, '| results array length:', results.length);
   const collected = [];
   for (const t of results) {
-    if (!t.previewUrl || !t.artworkUrl100) {
-      Debug.warn('parse:', 'skip (no preview/artwork):', t.trackName || t.trackId);
-      continue;
-    }
+    if (!t.previewUrl || !t.artworkUrl100) continue;
     collected.push({
-      id: t.trackId,
-      name: t.trackName,
-      artist: t.artistName,
-      album: t.collectionName,
+      id: t.trackId, name: t.trackName, artist: t.artistName, album: t.collectionName,
       image: t.artworkUrl100.replace('100x100bb', '600x600bb'),
-      previewUrl: t.previewUrl,
-      storeUrl: t.trackViewUrl,
-      genres: t.primaryGenreName ? [t.primaryGenreName] : [],
+      previewUrl: t.previewUrl, storeUrl: t.trackViewUrl,
+      genres: t.primaryGenreName ? [t.primaryGenreName] : ['Music'],
       likeCount: Math.floor(Math.random() * 5000) + 500,
     });
   }
-  Debug.info('parse:', 'usable tracks:', collected.length);
   return collected;
 }
 
-/* ---------- Dual-strategy fetch ---------- */
+async function fetchFromDeezer() {
+  const url = 'https://api.deezer.com/search?q=' + encodeURIComponent(currentQuery) + '&limit=50';
+  Debug.info('deezer:', 'attempting', url);
+  const controller = new AbortController();
+  const tid = setTimeout(() => controller.abort(), 8000);
+  const res = await fetch(url, { signal: controller.signal });
+  clearTimeout(tid);
+  Debug.info('deezer:', 'status', res.status);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  const results = data.data || [];
+  Debug.info('deezer:', 'resultCount', results.length);
+  const collected = [];
+  for (const t of results) {
+    if (!t.preview || !t.album || !t.album.cover_big) continue;
+    collected.push({
+      id: 'dz_' + t.id, name: t.title, artist: t.artist.name, album: t.album.title,
+      image: t.album.cover_big || t.album.cover_medium,
+      previewUrl: t.preview, storeUrl: t.link,
+      genres: ['Music'],
+      likeCount: Math.floor(Math.random() * 5000) + 500,
+    });
+  }
+  Debug.success('deezer:', 'usable tracks:', collected.length);
+  return collected;
+}
+
 async function fetchTracks() {
   const baseUrl = 'https://itunes.apple.com/search?' +
     'term=' + encodeURIComponent(currentQuery) +
@@ -516,45 +448,34 @@ async function fetchTracks() {
 
   Debug.status('loading…');
   Debug.info('fetchTracks:', 'query =', JSON.stringify(currentQuery));
-  Debug.info('fetchTracks:', 'baseUrl =', baseUrl);
 
-  // === Strategy 1: JSONP ===
-  const t0 = performance.now();
   try {
-    const data = await jsonpFetch(baseUrl, 15000);
-    Debug.success('fetchTracks:', 'JSONP OK in', (performance.now() - t0).toFixed(0) + 'ms');
-    return parseTracks(data);
-  } catch (e) {
-    Debug.warn('fetchTracks:', 'JSONP failed:', e.message);
-  }
+    const data = await jsonpFetch(baseUrl, 4000);
+    const parsed = parseAppleTracks(data);
+    if (parsed.length > 0) { Debug.success('fetchTracks:', 'JSONP OK'); return parsed; }
+  } catch (e) { Debug.warn('fetchTracks:', 'JSONP failed:', e.message); }
 
-  // === Strategy 2: fetch ===
-  const t1 = performance.now();
   try {
-    Debug.info('fetch:', 'attempting', baseUrl);
-    const res = await fetch(baseUrl, { mode: 'cors', cache: 'no-store', credentials: 'omit' });
-    const elapsed = (performance.now() - t1).toFixed(0);
-    Debug.info('fetch:', 'status', res.status, 'in', elapsed + 'ms');
-    try {
-      const hdrs = {};
-      res.headers.forEach((v, k) => hdrs[k] = v);
-      Debug.info('fetch:', 'headers:', JSON.stringify(hdrs).slice(0, 300));
-    } catch (_) {}
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const text = await res.text();
-    Debug.info('fetch:', 'body length:', text.length);
-    Debug.info('fetch:', 'preview:', text.slice(0, 250));
-    const data = JSON.parse(text);
-    Debug.success('fetchTracks:', 'fetch OK');
-    return parseTracks(data);
-  } catch (e) {
-    Debug.error('fetchTracks:', 'fetch failed:', e.name + ' / ' + e.message);
-  }
+    Debug.info('apple-fetch:', 'attempting');
+    const controller = new AbortController();
+    const tid = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(baseUrl, { signal: controller.signal, cache: 'no-store', credentials: 'omit' });
+    clearTimeout(tid);
+    Debug.info('apple-fetch:', 'status', res.status);
+    if (res.ok) {
+      const data = await res.json();
+      const parsed = parseAppleTracks(data);
+      if (parsed.length > 0) { Debug.success('fetchTracks:', 'Apple fetch OK'); return parsed; }
+    }
+  } catch (e) { Debug.warn('apple-fetch:', 'failed:', e.name, '/', e.message); }
 
-  // === Both failed ===
+  try {
+    const deezerTracks = await fetchFromDeezer();
+    if (deezerTracks.length > 0) { Debug.success('fetchTracks:', 'DEEZER OK'); return deezerTracks; }
+  } catch (e) { Debug.error('deezer:', 'failed:', e.name, '/', e.message); }
+
   Debug.error('fetchTracks:', 'ALL STRATEGIES FAILED');
-  Debug.status('failed');
-  throw new Error('All fetch strategies failed');
+  throw new Error('All strategies failed');
 }
 
 /* ---------- Card ---------- */
@@ -571,7 +492,10 @@ function createCard(track, position) {
     <div class="bg" style="background-image: url('${track.image}')"></div>
     <div class="gradient"></div>
     <div class="content">
-      <div class="center"><img class="cover" src="${track.image}" alt="cover"></div>
+      <div class="center paused">
+        <img class="cover" src="${track.image}" alt="cover">
+        <div class="play-hint">${svg('play', 32, '#fff')}</div>
+      </div>
       <div class="bottom">
         <div class="info">
           <div class="title">${track.name}</div>
@@ -628,6 +552,20 @@ function createCard(track, position) {
   audio.volume = 0;
   let fadeInterval = null;
 
+  const centerEl = card.querySelector('.center');
+
+  function updatePlayState() {
+    if (audio.paused) {
+      centerEl.classList.add('paused');
+    } else {
+      centerEl.classList.remove('paused');
+    }
+  }
+
+  audio.addEventListener('play', updatePlayState);
+  audio.addEventListener('pause', updatePlayState);
+  audio.addEventListener('ended', updatePlayState);
+
   audio.addEventListener('timeupdate', () => {
     const fill = card.querySelector('.audio-progress .fill');
     if (!fill) return;
@@ -644,8 +582,7 @@ function createCard(track, position) {
 
   function fadeAudio(from, to, ms) {
     if (fadeInterval) clearInterval(fadeInterval);
-    const steps = 20;
-    let i = 0;
+    const steps = 20; let i = 0;
     fadeInterval = setInterval(() => {
       i++;
       const t = i / steps;
@@ -654,17 +591,35 @@ function createCard(track, position) {
     }, Math.max(10, ms / steps));
   }
 
-  card.play = () => {
+  const togglePlay = () => {
+    if (!audio.paused) {
+      audio.pause();
+      return;
+    }
     if (currentAudio && currentAudio !== audio) {
       try { currentAudio.pause(); currentAudio.currentTime = 0; } catch (_) {}
     }
     currentAudio = audio;
-    audio.volume = 0;
-    audio.currentTime = 0;
-    audio.play().then(() => fadeAudio(0, 1, 400)).catch(e => {
-      Debug.warn('audio:', 'play rejected:', e.message);
-    });
+
+    if (audio.currentTime === 0) {
+      audio.volume = 0;
+      audio.play().then(() => fadeAudio(0, 1, 400)).catch(e => {
+        Debug.warn('audio:', 'play rejected:', e.message);
+      });
+    } else {
+      audio.play().catch(e => {
+        Debug.warn('audio:', 'play rejected:', e.message);
+      });
+    }
   };
+
+  card.togglePlay = togglePlay;
+
+  /* TAP на карточку — play/pause. Игнор клика по кнопкам и ссылкам. */
+  card.querySelector('.content').addEventListener('click', (e) => {
+    if (e.target.closest('a,button')) return;
+    togglePlay();
+  });
 
   const likeBtn = card.querySelector('[data-action="like"]');
   likeBtn.addEventListener('click', () => {
@@ -687,7 +642,7 @@ function createCard(track, position) {
         showEmpty('Нет избранных треков', 'Добавьте треки в избранное.', false);
       } else {
         if (activeIndex >= tracks.length) activeIndex = tracks.length - 1;
-        renderWindow(true);
+        renderWindow();
       }
     }
   });
@@ -699,12 +654,12 @@ function createCard(track, position) {
   const openSheet = () => {
     sheet.setAttribute('opened', 'true');
     card.dataset.sheetOpen = 'true';
-    audio.volume = 0.1;
+    if (!audio.paused) audio.volume = 0.1;
   };
   const closeSheet = () => {
     sheet.setAttribute('opened', 'false');
     delete card.dataset.sheetOpen;
-    audio.volume = 1;
+    if (!audio.paused) audio.volume = 1;
     sheetEl.style.transform = '';
     sheetEl.style.transition = '';
   };
@@ -769,7 +724,7 @@ function createCard(track, position) {
   return card;
 }
 
-function renderWindow(autoplay = false) {
+function renderWindow() {
   stopAllAudio();
   if (tracks.length === 0) { feedContainer.innerHTML = ''; return; }
   feedContainer.innerHTML = '';
@@ -778,11 +733,9 @@ function renderWindow(autoplay = false) {
   const nextIndex = activeIndex + 1;
 
   if (prevIndex >= 0) feedContainer.appendChild(createCard(tracks[prevIndex], -1));
-  const mainCard = createCard(tracks[activeIndex], 0);
-  feedContainer.appendChild(mainCard);
+  feedContainer.appendChild(createCard(tracks[activeIndex], 0));
   if (nextIndex < tracks.length) feedContainer.appendChild(createCard(tracks[nextIndex], 1));
-
-  if (autoplay && mainCard.play) setTimeout(() => mainCard.play(), 50);
+  // Не запускаем аудио автоматически — ждём тап пользователя
 }
 
 function showEmpty(title, subtitle, isError) {
@@ -817,7 +770,7 @@ function setView(view) {
     );
     return;
   }
-  renderWindow(true);
+  renderWindow();
 }
 
 async function runSearch(query) {
@@ -827,7 +780,6 @@ async function runSearch(query) {
   retryBtn.classList.remove('visible');
 
   const mySeq = ++requestSeq;
-
   let newTracks = null;
   try {
     newTracks = await fetchTracks();
@@ -839,7 +791,7 @@ async function runSearch(query) {
   }
 
   if (mySeq !== requestSeq) {
-    Debug.warn('runSearch:', 'stale response dropped (seq', mySeq, 'vs', requestSeq + ')');
+    Debug.warn('runSearch:', 'stale response dropped');
     return;
   }
 
@@ -857,7 +809,7 @@ async function runSearch(query) {
   if (tracks.length === 0) {
     showEmpty('Ничего не найдено', 'По запросу «' + query + '» ничего не найдено.', true);
   } else {
-    renderWindow(true);
+    renderWindow();
   }
   loadingEl.classList.remove('active');
 }
@@ -868,7 +820,6 @@ function commitSearch() {
   runSearch(q);
 }
 
-/* ---------- UI ---------- */
 searchBtn.addEventListener('click', () => {
   searchBar.classList.add('active');
   hudEl.classList.add('searching');
@@ -908,7 +859,8 @@ const onSwipeMove = (e) => {
   if ((activeIndex === 0 && d > 0) || (activeIndex === tracks.length - 1 && d < 0)) d *= 0.2;
   swipeCurrentY = d;
   feedContainer.style.transform = `translateY(${d}px)`;
-  if (e.cancelable) e.preventDefault();
+  // Не блокируем click для микро-движений (иначе tap не сработает)
+  if (Math.abs(d) > 8 && e.cancelable) e.preventDefault();
 };
 const onSwipeEnd = () => {
   if (!isSwiping) return;
@@ -922,11 +874,11 @@ const onSwipeEnd = () => {
   if (goNext) {
     feedContainer.style.transition = 'transform .35s cubic-bezier(0.25, 1, 0.5, 1)';
     feedContainer.style.transform = `translateY(-100%)`;
-    setTimeout(() => { activeIndex++; renderWindow(true); }, 350);
+    setTimeout(() => { activeIndex++; renderWindow(); }, 350);
   } else if (goPrev) {
     feedContainer.style.transition = 'transform .35s cubic-bezier(0.25, 1, 0.5, 1)';
     feedContainer.style.transform = `translateY(100%)`;
-    setTimeout(() => { activeIndex--; renderWindow(true); }, 350);
+    setTimeout(() => { activeIndex--; renderWindow(); }, 350);
   } else {
     feedContainer.style.transition = 'transform .35s cubic-bezier(0.25, 1, 0.5, 1)';
     feedContainer.style.transform = `translateY(0)`;
@@ -945,25 +897,23 @@ window.addEventListener('mouseup', () => {
   if (isMouseDown) { isMouseDown = false; onSwipeEnd(); }
 });
 
-/* ---------- Diagnose (callable from debug panel) ---------- */
+/* ---------- Diagnose ---------- */
 window.__diagnose = async function () {
   Debug.info('=== DIAGNOSE START ===');
   const urls = [
-    'https://itunes.apple.com/search?term=test&limit=1',
-    'https://itunes.apple.com/search?term=taylor%20swift&limit=1',
-    'https://itunes.apple.com/search?term=taylor%20swift&media=music&entity=song&limit=1',
-    'https://itunes.apple.com/search?term=taylor%20swift&media=music&entity=song&limit=50&country=us',
+    ['Apple-base', 'https://itunes.apple.com/search?term=test&limit=1'],
+    ['Apple-song', 'https://itunes.apple.com/search?term=taylor+swift&media=music&entity=song&limit=1'],
+    ['Deezer', 'https://api.deezer.com/search?q=taylor+swift&limit=1'],
   ];
-  for (const url of urls) {
+  for (const [name, url] of urls) {
     try {
       const t0 = performance.now();
-      const res = await fetch(url, { cache: 'no-store', credentials: 'omit' });
+      const res = await fetch(url, { cache: 'no-store' });
       const t1 = performance.now();
       const text = await res.text();
-      Debug.net('DIAG:', `[${res.status}] ${(t1 - t0).toFixed(0)}ms len=${text.length} | ${url}`);
-      if (text.length < 300) Debug.net('DIAG body:', text);
+      Debug.net('DIAG:', `[${name}] ${res.status} ${(t1 - t0).toFixed(0)}ms len=${text.length}`);
     } catch (e) {
-      Debug.error('DIAG:', 'FAILED:', e.name + ' ' + e.message, '|', url);
+      Debug.error('DIAG:', `[${name}] FAILED:`, e.name, e.message);
     }
   }
   Debug.info('=== DIAGNOSE END ===');
@@ -979,21 +929,6 @@ window.addEventListener('DOMContentLoaded', () => {
   updateHeight();
   runSearch(currentQuery);
 });
-
-/* ---------- Audio unlock ---------- */
-let audioUnlocked = false;
-const unlockAudio = () => {
-  if (audioUnlocked) return;
-  audioUnlocked = true;
-  const mainCard = feedContainer.querySelector('.track-card[data-position="0"]');
-  if (mainCard && mainCard.play && (!currentAudio || currentAudio.paused)) {
-    mainCard.play();
-  }
-  document.removeEventListener('touchstart', unlockAudio);
-  document.removeEventListener('mousedown', unlockAudio);
-};
-document.addEventListener('touchstart', unlockAudio, { passive: true });
-document.addEventListener('mousedown', unlockAudio);
 </script>
 </body>
 </html>
