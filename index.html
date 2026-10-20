@@ -42,12 +42,12 @@
     /* Search bar */
     .search-bar {
       position: absolute; top: calc(12px + env(safe-area-inset-top)); left: 20px; right: 20px;
-      display: flex; align-items: center; gap: 12px; z-index: 50;
+      display: flex; align-items: center; gap: 8px; z-index: 50;
       opacity: 0; pointer-events: none; transform: translateY(-10px);
       transition: all .3s cubic-bezier(.16,1,.3,1);
     }
     .search-bar.active { opacity: 1; pointer-events: auto; transform: translateY(0); }
-    .search-form { flex: 1; position: relative; display: flex; align-items: center; margin: 0; }
+    .search-form { flex: 1; position: relative; display: flex; align-items: center; margin: 0; min-width: 0; }
     .search-form svg { position: absolute; left: 12px; fill: #888; pointer-events: none; }
     .search-bar input {
       width: 100%; background: rgba(40,40,40,.8); backdrop-filter: blur(15px);
@@ -57,7 +57,14 @@
     }
     .search-bar input::-webkit-search-cancel-button { display: none; }
     .search-bar input::placeholder { color: #888; }
-    .cancel-btn { color: #fff; font-weight: 600; font-size: 15px; cursor: pointer; padding: 8px 0; background: none; border: none; }
+    .search-submit {
+      color: #000; font-weight: 700; font-size: 14px;
+      background: #1DB954; border: none; border-radius: 10px;
+      padding: 11px 16px; cursor: pointer; white-space: nowrap;
+      transition: background .2s;
+    }
+    .search-submit:active { background: #1aa84b; }
+    .cancel-btn { color: #fff; font-weight: 600; font-size: 15px; cursor: pointer; padding: 8px 0; background: none; border: none; white-space: nowrap; }
 
     .hud.searching .brand, .hud.searching .tabs, .hud.searching .search-icon { opacity: 0; pointer-events: none; }
 
@@ -113,7 +120,7 @@
     .comments-sheet .send { background: #fff; color: #000; border: none; padding: 0 20px; border-radius: 20px; font-weight: 600; font-size: 14px; cursor: pointer; }
 
     /* Loading & Empty */
-    .loading { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 20; transition: opacity .3s; }
+    .loading { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 20; transition: opacity .3s; pointer-events: none; }
     .loading.active { display: flex; opacity: 1; }
     .spinner { width: 32px; height: 32px; border: 3px solid rgba(255,255,255,.1); border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -145,7 +152,7 @@
       link.rel = 'manifest';
       link.href = URL.createObjectURL(blob);
       document.head.appendChild(link);
-      console.log('%c[Disco] v20.0 — Vanilla JS + JSONP', 'color:#1DB954;font-weight:bold');
+      console.log('%c[Disco] v21.0 — manual search + audio lifecycle fixes', 'color:#1DB954;font-weight:bold');
     })();
   </script>
 </head>
@@ -170,7 +177,8 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="#888"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
       <input type="search" id="search-input" placeholder="Поиск..." enterkeyhint="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
     </form>
-    <button class="cancel-btn" id="cancel-btn">Отмена</button>
+    <button class="search-submit" id="search-submit" type="button">Найти</button>
+    <button class="cancel-btn" id="cancel-btn" type="button">Отмена</button>
   </div>
 
   <!-- Feed -->
@@ -197,18 +205,18 @@
   };
   const svg = (n, s = 24, f = '#fff') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="${f}" xmlns="http://www.w3.org/2000/svg"><path d="${ICONS[n] || ''}"/></svg>`;
 
-  // Глобальное состояние
+  // ----- Глобальное состояние -----
   let feedTracks = [];
   let likedTracks = JSON.parse(localStorage.getItem('disco_liked_tracks') || '[]');
   let activeIndex = 0;
   let currentView = 'feed';
   let tracks = feedTracks;
-  let seen = new Set();
-  let isLoading = false;
   let currentQuery = 'taylor swift';
   let jsonpCounter = 0;
+  let requestSeq = 0;          // для отбрасывания устаревших ответов поиска
+  let currentAudio = null;     // единственный играющий Audio-объект
 
-  // DOM элементы
+  // DOM-элементы
   const feedContainer = document.getElementById('feed-container');
   const loadingEl = document.getElementById('loading');
   const emptyStateEl = document.getElementById('empty-state');
@@ -220,25 +228,38 @@
   const searchBtn = document.getElementById('search-btn');
   const cancelBtn = document.getElementById('cancel-btn');
   const searchForm = document.getElementById('search-form');
+  const searchSubmit = document.getElementById('search-submit');
 
   let cardHeight = window.innerHeight;
 
-  // Обновление размера
   function updateHeight() {
     cardHeight = feedContainer.clientHeight;
   }
   window.addEventListener('resize', updateHeight);
 
-  // Форматирование чисел
   function fmt(n) {
     return n >= 1000 ? (n / 1000).toFixed(1) + 'K' : n;
   }
 
-  // JSONP запрос
+  // ----- Остановка всего аудио -----
+  // Идемпотентно. Вызывается перед любой сменой контента.
+  function stopAllAudio() {
+    if (currentAudio) {
+      try { currentAudio.pause(); currentAudio.currentTime = 0; } catch (_) {}
+      currentAudio = null;
+    }
+    feedContainer.querySelectorAll('.track-card').forEach(c => {
+      if (c.audio) {
+        try { c.audio.pause(); c.audio.currentTime = 0; } catch (_) {}
+      }
+    });
+  }
+
+  // ----- JSONP -----
   function jsonp(url) {
     return new Promise((resolve, reject) => {
       const cbName = 'itunesJsonp_' + (++jsonpCounter) + '_' + Date.now();
-      
+
       window[cbName] = (data) => {
         try { resolve(data); }
         finally { cleanup(); }
@@ -260,20 +281,17 @@
     });
   }
 
-  // Загрузка треков
+  // ----- Загрузка треков -----
   async function fetchTracks() {
     const encodedTerm = encodeURIComponent(currentQuery).replace(/%20/g, '+');
     const url = `https://itunes.apple.com/search?term=${encodedTerm}&media=music&entity=song&limit=200&country=us`;
-    
+
     try {
       const data = await jsonp(url);
       const results = data.results || [];
       const collected = [];
-      
       for (const t of results) {
         if (!t.previewUrl || !t.artworkUrl100) continue;
-        if (seen.has(t.trackId)) continue;
-        seen.add(t.trackId);
         collected.push({
           id: t.trackId,
           name: t.trackName,
@@ -293,7 +311,7 @@
     }
   }
 
-  // Создание карточки
+  // ----- Создание карточки -----
   function createCard(track, position) {
     const card = document.createElement('div');
     card.className = 'track-card';
@@ -314,9 +332,9 @@
           <div class="info">
             <div class="title">${track.name}</div>
             <div class="artist">${track.artist}</div>
-            <div class="album">${track.album}</div>
+            <div class="album">${track.album || ''}</div>
             <div class="tag">#${track.genres[0] || 'Music'}</div>
-            <a class="store" href="${track.storeUrl}" target="_blank">
+            <a class="store" href="${track.storeUrl}" target="_blank" rel="noopener">
               ${svg('external', 14, '#000')} Слушать полностью
             </a>
           </div>
@@ -361,7 +379,7 @@
       </div>
     `;
 
-    // Аудио
+    // ----- Аудио -----
     const audio = new Audio(track.previewUrl);
     audio.preload = 'auto';
     audio.volume = 0;
@@ -369,43 +387,49 @@
 
     audio.addEventListener('timeupdate', () => {
       const fill = card.querySelector('.audio-progress .fill');
+      if (!fill) return;
       const duration = audio.duration || 1;
       fill.style.width = `${(audio.currentTime / duration) * 100}%`;
     });
 
     audio.addEventListener('ended', () => {
       const fill = card.querySelector('.audio-progress .fill');
-      fill.style.width = '0%';
+      if (fill) fill.style.width = '0%';
     });
 
-    // Управление громкостью
     function fadeAudio(from, to, ms) {
       if (fadeInterval) clearInterval(fadeInterval);
-      const start = from;
       const steps = 20;
       let i = 0;
       fadeInterval = setInterval(() => {
         i++;
         const t = i / steps;
-        audio.volume = Math.max(0, Math.min(1, start + (to - start) * t));
+        audio.volume = Math.max(0, Math.min(1, from + (to - from) * t));
         if (i >= steps) { clearInterval(fadeInterval); fadeInterval = null; }
       }, Math.max(10, ms / steps));
     }
 
-    // Play/Pause
     card.play = () => {
+      if (currentAudio && currentAudio !== audio) {
+        try { currentAudio.pause(); currentAudio.currentTime = 0; } catch (_) {}
+      }
+      currentAudio = audio;
+      audio.volume = 0;               // гарантированно тихий старт
       audio.currentTime = 0;
       audio.play().then(() => fadeAudio(0, 1, 400)).catch(() => {});
     };
+
     card.reset = () => {
       audio.pause();
       audio.currentTime = 0;
-      audio.volume = 1;
+      audio.volume = 0;
       if (fadeInterval) { clearInterval(fadeInterval); fadeInterval = null; }
-      card.querySelector('.audio-progress .fill').style.width = '0%';
+      const fill = card.querySelector('.audio-progress .fill');
+      if (fill) fill.style.width = '0%';
+      if (currentAudio === audio) currentAudio = null;
     };
 
-    // Лайк
+    // ----- Лайк -----
     const likeBtn = card.querySelector('[data-action="like"]');
     likeBtn.addEventListener('click', () => {
       const wasLiked = likedTracks.some(t => t.id === track.id);
@@ -415,26 +439,34 @@
         likedTracks.push(track);
       }
       localStorage.setItem('disco_liked_tracks', JSON.stringify(likedTracks));
-      
-      if (currentView === 'liked') {
+
+      const nowLiked = !wasLiked;
+      likeBtn.classList.toggle('active', nowLiked);
+      const ico = likeBtn.querySelector('svg');
+      if (ico) ico.style.fill = nowLiked ? '#ff2d55' : '#fff';
+      const cnt = likeBtn.querySelector('.count');
+      if (cnt) cnt.textContent = fmt((track.likeCount || 0) + (nowLiked ? 1 : 0));
+
+      // Если мы в «Избранном» и сняли лайк — нужно обновить список
+      if (currentView === 'liked' && wasLiked) {
         tracks = likedTracks;
         if (tracks.length === 0) {
-          setView('liked');
+          stopAllAudio();
+          emptyStateEl.querySelector('.title').textContent = 'Нет избранных треков';
+          emptyStateEl.classList.add('active');
+          feedContainer.innerHTML = '';
         } else {
           if (activeIndex >= tracks.length) activeIndex = tracks.length - 1;
           renderWindow(true);
         }
-      } else {
-        // Обновляем кнопку
-        const isLiked = likedTracks.some(t => t.id === track.id);
-        likeBtn.classList.toggle('active', isLiked);
-        likeBtn.querySelector('svg').style.fill = isLiked ? '#ff2d55' : '#fff';
-        likeBtn.querySelector('.count').textContent = fmt((track.likeCount || 0) + (isLiked ? 1 : 0));
       }
     });
 
-    // Шторка комментариев
+    // ----- Шторка комментариев -----
     const sheet = card.querySelector('.comments-sheet');
+    const sheetEl = card.querySelector('.sheet');
+    const handle = card.querySelector('.handle');
+
     const openSheet = () => {
       sheet.setAttribute('opened', 'true');
       card.dataset.sheetOpen = 'true';
@@ -444,16 +476,16 @@
       sheet.setAttribute('opened', 'false');
       delete card.dataset.sheetOpen;
       audio.volume = 1;
+      sheetEl.style.transform = '';
+      sheetEl.style.transition = '';
     };
     card.querySelector('[data-action="comment"]').addEventListener('click', openSheet);
     card.querySelector('.close').addEventListener('click', closeSheet);
     card.querySelector('.backdrop').addEventListener('click', closeSheet);
 
-    // Свайп шторки
+    // Свайп шторки — слушатели висят на sheetEl только во время жеста
     let startY = 0, curY = 0, isDragging = false;
-    const handle = card.querySelector('.handle');
-    const sheetEl = card.querySelector('.sheet');
-    
+
     const onSheetMove = (e) => {
       if (!isDragging) return;
       const y = e.touches ? e.touches[0].clientY : e.clientY;
@@ -477,20 +509,39 @@
       curY = 0;
     };
 
-    handle.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; isDragging = true; });
-    handle.addEventListener('mousedown', (e) => { startY = e.clientY; isDragging = true; });
-    window.addEventListener('touchmove', onSheetMove, { passive: false });
-    window.addEventListener('touchend', onSheetEnd);
-    window.addEventListener('mousemove', onSheetMove);
-    window.addEventListener('mouseup', onSheetEnd);
+    handle.addEventListener('touchstart', (e) => {
+      startY = e.touches[0].clientY;
+      isDragging = true;
+      const move = (ev) => onSheetMove(ev);
+      const end = () => {
+        onSheetEnd();
+        sheetEl.removeEventListener('touchmove', move);
+        sheetEl.removeEventListener('touchend', end);
+      };
+      sheetEl.addEventListener('touchmove', move, { passive: false });
+      sheetEl.addEventListener('touchend', end);
+    }, { passive: true });
 
-    // Share
+    handle.addEventListener('mousedown', (e) => {
+      startY = e.clientY;
+      isDragging = true;
+      const move = (ev) => onSheetMove(ev);
+      const end = () => {
+        onSheetEnd();
+        window.removeEventListener('mousemove', move);
+        window.removeEventListener('mouseup', end);
+      };
+      window.addEventListener('mousemove', move);
+      window.addEventListener('mouseup', end);
+    });
+
+    // ----- Share -----
     card.querySelector('[data-action="share"]').addEventListener('click', async () => {
       if (navigator.share) {
         try { await navigator.share({ title: track.name, url: track.storeUrl }); } catch (_) {}
-      } else {
-        navigator.clipboard.writeText(track.storeUrl);
-        alert('Ссылка скопирована!');
+      } else if (navigator.clipboard) {
+        try { await navigator.clipboard.writeText(track.storeUrl); alert('Ссылка скопирована!'); }
+        catch (_) {}
       }
     });
 
@@ -498,19 +549,15 @@
     return card;
   }
 
-  // Отрисовка окна (3 карточки)
+  // ----- Отрисовка окна (3 карточки) -----
   function renderWindow(autoplay = false) {
+    stopAllAudio();
+
     if (tracks.length === 0) {
       feedContainer.innerHTML = '';
       return;
     }
 
-    // Сбрасываем старые карточки
-    const oldCards = feedContainer.querySelectorAll('.track-card');
-    oldCards.forEach(c => {
-      if (c.audio) c.audio.pause();
-      // Удаляем обработчики?
-    });
     feedContainer.innerHTML = '';
 
     const prevIndex = activeIndex - 1;
@@ -530,8 +577,9 @@
     }
   }
 
-  // Переключение вкладки
+  // ----- Переключение вкладки -----
   function setView(view) {
+    stopAllAudio();
     currentView = view;
     if (view === 'feed') {
       tabFeed.classList.add('active');
@@ -556,34 +604,50 @@
     renderWindow(true);
   }
 
-  // Загрузка треков при старте и поиске
-  async function loadTracks() {
-    if (isLoading) return;
-    isLoading = true;
+  // ----- Единая операция поиска -----
+  // Атомарно: до прихода ответа ничего не трогаем.
+  async function runSearch(query) {
+    currentQuery = query;
     loadingEl.classList.add('active');
     emptyStateEl.classList.remove('active');
 
+    const mySeq = ++requestSeq;
     const newTracks = await fetchTracks();
 
-    if (newTracks.length > 0) {
-      feedTracks = [...feedTracks, ...newTracks];
-      if (currentView === 'feed') {
-        tracks = feedTracks;
-        activeIndex = feedTracks.length - newTracks.length; // первый новый
-        renderWindow(true);
-      }
+    // Пока ждали — ушёл более новый запрос. Этот ответ устарел.
+    if (mySeq !== requestSeq) return;
+
+    feedTracks = newTracks;
+    tracks = feedTracks;
+    activeIndex = 0;
+
+    if (currentView !== 'feed') {
+      currentView = 'feed';
+      tabFeed.classList.add('active');
+      tabLiked.classList.remove('active');
+    }
+
+    stopAllAudio();
+
+    if (tracks.length === 0) {
+      emptyStateEl.querySelector('.title').textContent = 'Ничего не найдено';
+      emptyStateEl.classList.add('active');
+      feedContainer.innerHTML = '';
     } else {
-      if (feedTracks.length === 0) {
-        emptyStateEl.querySelector('.title').textContent = 'Ничего не найдено';
-        emptyStateEl.classList.add('active');
-      }
+      renderWindow(true);
     }
 
     loadingEl.classList.remove('active');
-    isLoading = false;
   }
 
-  // Обработчики UI
+  function commitSearch() {
+    const q = searchInput.value.trim();
+    if (q.length < 2) return;
+    runSearch(q);
+    // НЕ вызываем blur() — фокус остаётся для правок
+  }
+
+  // ----- UI -----
   searchBtn.addEventListener('click', () => {
     searchBar.classList.add('active');
     hudEl.classList.add('searching');
@@ -597,40 +661,20 @@
     searchInput.value = '';
   });
 
-  let searchTimeout = null;
-  searchInput.addEventListener('input', (e) => {
-    clearTimeout(searchTimeout);
-    const query = e.target.value.trim();
-    if (query.length < 2) return;
-    searchTimeout = setTimeout(() => {
-      if (query !== currentQuery) {
-        currentQuery = query;
-        feedTracks = [];
-        seen.clear();
-        setView('feed');
-        loadTracks();
-      }
-    }, 600);
-  });
-
   searchForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    clearTimeout(searchTimeout);
-    const query = searchInput.value.trim();
-    if (query.length >= 2 && query !== currentQuery) {
-      searchInput.blur();
-      currentQuery = query;
-      feedTracks = [];
-      seen.clear();
-      setView('feed');
-      loadTracks();
-    }
+    commitSearch();
+  });
+
+  searchSubmit.addEventListener('click', (e) => {
+    e.preventDefault();
+    commitSearch();
   });
 
   tabFeed.addEventListener('click', () => setView('feed'));
   tabLiked.addEventListener('click', () => setView('liked'));
 
-  // Свайпы ленты
+  // ----- Свайпы ленты -----
   let swipeStartY = 0, swipeCurrentY = 0, isSwiping = false, swipeStartTime = 0;
   const swipeThreshold = 0.1;
   let isMouseDown = false;
@@ -709,27 +753,26 @@
     }
   });
 
-  // Автозапуск
+  // ----- Старт -----
   window.addEventListener('DOMContentLoaded', () => {
-    // Удаляем старый Service Worker
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(registrations => {
-        for (let registration of registrations) { registration.unregister(); }
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        for (const r of regs) r.unregister();
       });
     }
-    
+
     updateHeight();
     setView('feed');
-    loadTracks();
+    runSearch(currentQuery);
   });
 
-  // Разблокировка аудио по первому тапу
+  // ----- Разблокировка аудио по первому жесту -----
   let audioUnlocked = false;
   const unlockAudio = () => {
     if (audioUnlocked) return;
     audioUnlocked = true;
     const mainCard = feedContainer.querySelector('.track-card[data-position="0"]');
-    if (mainCard && mainCard.play) {
+    if (mainCard && mainCard.play && (!currentAudio || currentAudio.paused)) {
       mainCard.play();
     }
     document.removeEventListener('touchstart', unlockAudio);
@@ -737,7 +780,6 @@
   };
   document.addEventListener('touchstart', unlockAudio, { passive: true });
   document.addEventListener('mousedown', unlockAudio);
-
 </script>
 </body>
 </html>
