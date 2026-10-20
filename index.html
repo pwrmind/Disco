@@ -47,7 +47,7 @@
       link.rel = 'manifest';
       link.href = URL.createObjectURL(blob);
       document.head.appendChild(link);
-      console.log('%c[Disco] v14.0 — JSONP Final Edition', 'color:#1DB954;font-weight:bold');
+      console.log('%c[Disco] v15.0 — Search Mode (Max Limit, Native Fetch)', 'color:#1DB954;font-weight:bold');
     })();
   </script>
 </head>
@@ -391,9 +391,9 @@
           <div class="wrapper"></div>
           
           <div class="empty-state" id="empty-state">
-            <div class="icon">📡</div>
-            <div class="title">Нет результатов</div>
-            <div class="subtitle">Попробуйте изменить запрос или проверьте интернет.</div>
+            <div class="icon">🔍</div>
+            <div class="title">Ничего не найдено</div>
+            <div class="subtitle">Попробуйте изменить запрос.</div>
           </div>
 
           <div class="loading" style="display: none;"><div class="spinner"></div></div>`;
@@ -548,9 +548,7 @@
           if (this._curY > threshold || isFastFlick) target = Math.max(this.activeIndex - 1, 0);
         }
 
-        if (this._curY < -threshold && this.activeIndex === this.tracks.length - 1) {
-          this.dispatchEvent(new CustomEvent('need-more-tracks', { bubbles: true, composed: true }));
-        }
+        // Убрали событие need-more-tracks
 
         this.activeIndex = target;
         this._wrapper.style.transition = 'transform .35s cubic-bezier(0.25, 1, 0.5, 1)';
@@ -565,28 +563,20 @@
     }
     customElements.define('discovery-feed', DiscoveryFeed);
 
-    // --- ГЛАВНЫЙ КЛАСС (JSONP) ---
+    // --- ГЛАВНЫЙ КЛАСС (Поиск как основа) ---
     class DiscoApp {
       constructor() {
         this.root = document.getElementById('app-root');
         this.isLoading = false;
         this.seen = new Set();
-        this.terms = ['taylor swift', 'the weeknd', 'billie eilish', 'drake', 'dua lipa', 'bad bunny', 'coldplay', 'daft punk', 'michael jackson', 'eminem'];
-        this.termIndex = 0; 
-        this.offset = 0; 
-        this.LIMIT = 25;
+        this.LIMIT = 200; // Максимальный лимит
         this.searchMode = false;
-        this.searchQuery = '';
-        this.jsonpCounter = 0; 
+        this.searchQuery = 'taylor swift'; // Дефолтный запрос при старте
       }
       
       init() {
         this.feed = document.createElement('discovery-feed');
         this.root.appendChild(this.feed);
-        
-        this.feed.addEventListener('need-more-tracks', () => {
-          if (!this.searchMode) this.loadNextBatch();
-        });
         
         this.feed.addEventListener('search-submitted', (e) => {
           this.isLoading = false;
@@ -599,26 +589,24 @@
 
           this.searchQuery = cleanQuery;
           this.seen.clear();
-          this.offset = 0;
           this.feed.clearFeed();
-          this.loadNextBatch();
+          this.loadTracks();
         });
 
         this.feed.addEventListener('search-cancelled', () => {
           this.isLoading = false;
           this.searchMode = false;
-          this.searchQuery = '';
+          this.searchQuery = 'taylor swift';
           this.seen.clear();
-          this.termIndex = 0; 
-          this.offset = 0;
           this.feed.clearFeed();
-          this.loadNextBatch();
+          this.loadTracks();
         });
 
-        this.loadNextBatch();
+        // Загружаем дефолтный запрос при старте
+        this.loadTracks();
       }
       
-      async loadNextBatch() {
+      async loadTracks() {
         if (this.isLoading) return;
         this.isLoading = true;
         try {
@@ -636,41 +624,17 @@
           this.isLoading = false; 
         }
       }
-
-      // --- МЕТОД JSONP ---
-      _jsonp(url) {
-        return new Promise((resolve, reject) => {
-          const cbName = 'itunesJsonp_' + (++this.jsonpCounter) + '_' + Date.now();
-          
-          window[cbName] = (data) => {
-            try { resolve(data); } 
-            finally { cleanup(); }
-          };
-
-          function cleanup() {
-            if (script.parentNode) script.parentNode.removeChild(script);
-            try { delete window[cbName]; } catch (_) { window[cbName] = undefined; }
-          }
-
-          const script = document.createElement('script');
-          script.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + cbName;
-          script.onerror = () => { cleanup(); reject(new Error('JSONP Script Error')); };
-          document.body.appendChild(script);
-
-          setTimeout(() => {
-            if (window[cbName]) { cleanup(); reject(new Error('Timeout')); }
-          }, 10000);
-        });
-      }
       
       async _fetch() {
-        let term = this.searchMode ? this.searchQuery : this.terms[this.termIndex];
+        const term = this.searchQuery;
         const encodedTerm = encodeURIComponent(term).replace(/%20/g, '+');
-        
-        const url = `https://itunes.apple.com/search?term=${encodedTerm}&media=music&entity=song&limit=${this.LIMIT}&offset=${this.offset}&country=us`;
+        const url = `https://itunes.apple.com/search?term=${encodedTerm}&media=music&entity=song&limit=${this.LIMIT}&offset=0&country=us`;
         
         try {
-          const data = await this._jsonp(url);
+          // ИСПОЛЬЗУЕМ ОБЫЧНЫЙ GET-ЗАПРОС (fetch)
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
           
           const results = data.results || [];
           const collected = [];
@@ -688,21 +652,9 @@
             });
           }
           
-          if (!this.searchMode) {
-            if (results.length < this.LIMIT || this.offset >= 200) { 
-              this.termIndex = (this.termIndex + 1) % this.terms.length; 
-              this.offset = 0; 
-            } else { 
-              this.offset += this.LIMIT; 
-            }
-          }
           return collected;
         } catch (err) {
-          console.warn(`[JSONP] Ошибка (${term}):`, err.message);
-          if (!this.searchMode) {
-            this.termIndex = (this.termIndex + 1) % this.terms.length; 
-            this.offset = 0;
-          }
+          console.warn(`[API] Ошибка (${term}):`, err.message);
           return [];
         }
       }
