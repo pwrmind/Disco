@@ -47,7 +47,7 @@
       link.rel = 'manifest';
       link.href = URL.createObjectURL(blob);
       document.head.appendChild(link);
-      console.log('%c[Disco] v16.0 — Cumulative Search & Liked Tracks', 'color:#1DB954;font-weight:bold');
+      console.log('%c[Disco] v17.0 — DOM Virtualization (O(1) Memory)', 'color:#1DB954;font-weight:bold');
     })();
   </script>
 </head>
@@ -328,6 +328,7 @@
         this.activeIndex = 0; 
         this.feedTracks = []; 
         this.likedTracks = JSON.parse(localStorage.getItem('disco_liked_tracks') || '[]');
+        this.tracks = this.feedTracks; 
         this.cards = [];
         this.currentView = 'feed';
         this._startY = 0; this._curY = 0; this._swiping = false; this._unlocked = false;
@@ -472,7 +473,8 @@
         const unlock = () => {
           if (this._unlocked) return;
           this._unlocked = true;
-          if (this.cards[this.activeIndex]) this.cards[this.activeIndex].play().catch(() => {});
+          const centerCard = this.cards.find(c => c.dataset.position === '0');
+          if (centerCard) centerCard.play().catch(() => {});
           document.removeEventListener('touchstart', unlock);
           document.removeEventListener('mousedown', unlock);
         };
@@ -488,38 +490,24 @@
         if (view === 'feed') {
           tabFeed.classList.add('active');
           tabLiked.classList.remove('active');
+          this.tracks = this.feedTracks;
         } else {
           tabLiked.classList.add('active');
           tabFeed.classList.remove('active');
+          this.tracks = this.likedTracks;
         }
         
-        this.cards.forEach(c => c.reset());
-        this._wrapper.innerHTML = '';
-        this.cards = [];
         this.activeIndex = 0;
-        this._wrapper.style.transition = 'none';
-        this._wrapper.style.transform = `translateY(0)`;
-
-        const list = view === 'feed' ? this.feedTracks : this.likedTracks;
+        this.hideLoading();
         
-        if (list.length === 0) {
+        if (this.tracks.length === 0) {
           this.showEmptyState(view === 'feed' ? 'Ничего не найдено' : 'Нет избранных треков');
+          this._wrapper.innerHTML = '';
+          this.cards = [];
           return;
         }
         
-        this.hideLoading();
-        
-        list.forEach((t, i) => {
-          const card = document.createElement('track-card');
-          card.style.transform = `translateY(${i * 100}%)`; 
-          card.trackData = t;
-          this._wrapper.appendChild(card);
-          this.cards.push(card);
-        });
-        
-        if (this._unlocked && this.cards.length > 0) {
-            this.cards[0].play().catch(()=>{});
-        }
+        this.renderWindow(true);
       }
 
       showLoading() {
@@ -543,39 +531,66 @@
       appendTracks(arr) {
         if (!arr || arr.length === 0) return;
         
-        const startIdx = this.feedTracks.length;
         arr.forEach(t => this.feedTracks.push(t));
 
         if (this.currentView === 'feed') {
-          arr.forEach((t, i) => {
-            const card = document.createElement('track-card');
-            card.style.transform = `translateY(${(startIdx + i) * 100}%)`; 
-            card.trackData = t;
-            this._wrapper.appendChild(card);
-            this.cards.push(card);
-          });
-          this.hideLoading();
+          this.tracks = this.feedTracks;
+          if (this.tracks.length === arr.length) { 
+            this.renderWindow(true);
+          }
         }
       }
 
       jumpToTrack(trackId) {
         if (this.currentView !== 'feed') return;
-        const idx = this.feedTracks.findIndex(t => t.id === trackId);
+        const idx = this.tracks.findIndex(t => t.id === trackId);
         if (idx !== -1) {
           this.activeIndex = idx;
-          this._wrapper.style.transition = 'none';
-          this._wrapper.style.transform = `translateY(${-(idx * this._cardHeight)}px)`;
-          
-          this.cards.forEach((card, i) => {
-            if (i === this.activeIndex) { if (this._unlocked) card.play().catch(() => {}); }
-            else { card.reset(); }
-          });
+          this.renderWindow(true);
+        }
+      }
+
+      // ВИРТУАЛИЗАЦИЯ: В DOM всегда только 3 карточки (prev, curr, next)
+      renderWindow(autoplay = false) {
+        if (this.tracks.length === 0) return;
+        
+        this.cards.forEach(c => c.reset());
+        this._wrapper.innerHTML = '';
+        this.cards = [];
+        
+        this._wrapper.style.transition = 'none';
+        this._wrapper.style.transform = 'translateY(0)';
+        
+        const prevIndex = this.activeIndex - 1;
+        const nextIndex = this.activeIndex + 1;
+        
+        if (prevIndex >= 0) {
+          this.createCard(this.tracks[prevIndex], -1);
+        }
+        
+        this.createCard(this.tracks[this.activeIndex], 0, autoplay);
+        
+        if (nextIndex < this.tracks.length) {
+          this.createCard(this.tracks[nextIndex], 1);
+        }
+      }
+
+      createCard(trackData, position, autoplay = false) {
+        const card = document.createElement('track-card');
+        card.style.transform = `translateY(${position * 100}%)`; 
+        card.dataset.position = position;
+        card.trackData = trackData;
+        this._wrapper.appendChild(card);
+        this.cards.push(card);
+        
+        if (position === 0 && autoplay && this._unlocked) {
+          card.play().catch(()=>{});
         }
       }
       
       _onStart(e) {
-        const cur = this.cards[this.activeIndex];
-        if (cur && cur.isSheetOpen()) return;
+        const centerCard = this.cards.find(c => c.dataset.position === '0');
+        if (centerCard && centerCard.isSheetOpen()) return;
         this._startY = e.touches ? e.touches[0].clientY : e.clientY;
         this._curY = 0;
         this._swiping = true;
@@ -587,9 +602,9 @@
         if (!this._swiping) return;
         const y = e.touches ? e.touches[0].clientY : e.clientY;
         let d = y - this._startY;
-        if ((this.activeIndex === 0 && d > 0) || (this.activeIndex === this.cards.length - 1 && d < 0)) d *= 0.2;
+        if ((this.activeIndex === 0 && d > 0) || (this.activeIndex === this.tracks.length - 1 && d < 0)) d *= 0.2;
         this._curY = d;
-        this._wrapper.style.transform = `translateY(${-(this.activeIndex * this._cardHeight) + d}px)`;
+        this._wrapper.style.transform = `translateY(${d}px)`;
         if (e.cancelable) e.preventDefault();
       }
       
@@ -601,21 +616,28 @@
         const threshold = this._cardHeight * 0.1;
         const isFastFlick = timeElapsed < 300 && Math.abs(this._curY) > 20;
         
-        let target = this.activeIndex;
-        if (this._curY < 0) { 
-          if (this._curY < -threshold || isFastFlick) target = Math.min(this.activeIndex + 1, this.cards.length - 1);
-        } else if (this._curY > 0) { 
-          if (this._curY > threshold || isFastFlick) target = Math.max(this.activeIndex - 1, 0);
-        }
+        const goNext = (this._curY < -threshold || (isFastFlick && this._curY < 0)) && this.activeIndex < this.tracks.length - 1;
+        const goPrev = (this._curY > threshold || (isFastFlick && this._curY > 0)) && this.activeIndex > 0;
 
-        this.activeIndex = target;
-        this._wrapper.style.transition = 'transform .35s cubic-bezier(0.25, 1, 0.5, 1)';
-        this._wrapper.style.transform = `translateY(${-(target * this._cardHeight)}px)`;
+        if (goNext) {
+          this._wrapper.style.transition = 'transform .35s cubic-bezier(0.25, 1, 0.5, 1)';
+          this._wrapper.style.transform = `translateY(-100%)`;
+          setTimeout(() => {
+            this.activeIndex++;
+            this.renderWindow(true);
+          }, 350);
+        } else if (goPrev) {
+          this._wrapper.style.transition = 'transform .35s cubic-bezier(0.25, 1, 0.5, 1)';
+          this._wrapper.style.transform = `translateY(100%)`;
+          setTimeout(() => {
+            this.activeIndex--;
+            this.renderWindow(true);
+          }, 350);
+        } else {
+          this._wrapper.style.transition = 'transform .35s cubic-bezier(0.25, 1, 0.5, 1)';
+          this._wrapper.style.transform = `translateY(0%)`;
+        }
         
-        this.cards.forEach((card, i) => {
-          if (i === this.activeIndex) { if (this._unlocked) card.play().catch(() => {}); } 
-          else { card.reset(); }
-        });
         this._curY = 0;
       }
     }
@@ -626,7 +648,7 @@
         this.root = document.getElementById('app-root');
         this.isLoading = false;
         this.seen = new Set();
-        this.LIMIT = 200; // Максимальный лимит
+        this.LIMIT = 200; // Максимальный лимит за один запрос
         this.searchMode = false;
         this.searchQuery = 'taylor swift'; // Дефолтный запрос при старте
       }
@@ -657,6 +679,7 @@
             this.feed.jumpToTrack(newTracks[0].id);
           } else {
             this.feed.hideLoading();
+            this.feed.showEmptyState('Ничего не найдено');
           }
         });
 
@@ -694,7 +717,15 @@
         this.feed.likedTracks = liked;
         
         if (this.feed.currentView === 'liked') {
-          this.feed.setView('liked');
+          this.feed.tracks = this.feed.likedTracks;
+          if (this.feed.tracks.length === 0) {
+             this.feed.setView('liked');
+          } else {
+             if (this.feed.activeIndex >= this.feed.tracks.length) {
+               this.feed.activeIndex = this.feed.tracks.length - 1;
+             }
+             this.feed.renderWindow(true);
+          }
         }
       }
       
@@ -713,6 +744,7 @@
           
           for (const t of results) {
             if (!t.previewUrl || !t.artworkUrl100) continue;
+            // Убираем дубликаты (важно при поиске)
             if (this.seen.has(t.trackId)) continue;
             this.seen.add(t.trackId);
             collected.push({
@@ -733,6 +765,7 @@
     }
 
     window.addEventListener('DOMContentLoaded', () => {
+      // Удаляем Service Worker, если он остался
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(registrations => {
           for (let registration of registrations) { registration.unregister(); }
