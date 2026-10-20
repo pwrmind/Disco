@@ -47,7 +47,7 @@
       link.rel = 'manifest';
       link.href = URL.createObjectURL(blob);
       document.head.appendChild(link);
-      console.log('%c[Disco] v17.0 — DOM Virtualization (O(1) Memory)', 'color:#1DB954;font-weight:bold');
+      console.log('%c[Disco] v18.0 — Virtualized + Cumulative Search + Liked', 'color:#1DB954;font-weight:bold');
     })();
   </script>
 </head>
@@ -454,6 +454,7 @@
           
           if (query.length >= 2) {
             this._searchInput.blur(); 
+            // Задержка 400мс, чтобы iOS Safari успел убрать клавиатуру
             setTimeout(() => {
               this.dispatchEvent(new CustomEvent('search-submitted', { bubbles: true, composed: true, detail: { query } }));
             }, 400);
@@ -679,7 +680,6 @@
             this.feed.jumpToTrack(newTracks[0].id);
           } else {
             this.feed.hideLoading();
-            this.feed.showEmptyState('Ничего не найдено');
           }
         });
 
@@ -731,20 +731,31 @@
       
       async _fetch() {
         const term = this.searchQuery;
+        // Заменяем пробелы на + (iTunes API так надежнее)
         const encodedTerm = encodeURIComponent(term).replace(/%20/g, '+');
         const url = `https://itunes.apple.com/search?term=${encodedTerm}&media=music&entity=song&limit=${this.LIMIT}&offset=0&country=us`;
         
         try {
           const res = await fetch(url);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = await res.json();
           
+          // Apple иногда отдает text/javascript вместо application/json
+          // res.json() справляется с этим, но давайте подстрахуемся
+          const text = await res.text();
+          let data;
+          try {
+            data = JSON.parse(text);
+          } catch(e) {
+             // Если это JSONP-ответ (хотя мы не просили), или просто сбой
+             throw new Error('JSON Parse Error');
+          }
+
           const results = data.results || [];
           const collected = [];
           
           for (const t of results) {
             if (!t.previewUrl || !t.artworkUrl100) continue;
-            // Убираем дубликаты (важно при поиске)
+            // Убираем дубликаты
             if (this.seen.has(t.trackId)) continue;
             this.seen.add(t.trackId);
             collected.push({
@@ -765,7 +776,7 @@
     }
 
     window.addEventListener('DOMContentLoaded', () => {
-      // Удаляем Service Worker, если он остался
+      // Удаляем Service Worker, если он остался с прошлых версий
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(registrations => {
           for (let registration of registrations) { registration.unregister(); }
