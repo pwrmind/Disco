@@ -9,7 +9,6 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23000' rx='22'/%3E%3Ccircle cx='50' cy='50' r='30' fill='%231DB954'/%3E%3Ccircle cx='50' cy='50' r='8' fill='%23000'/%3E%3C/svg%3E">
-  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%23000' rx='40'/%3E%3Ccircle cx='90' cy='90' r='54' fill='%231DB954'/%3E%3Ccircle cx='90' cy='90' r='14' fill='%23000'/%3E%3C/svg%3E">
 
   <title>Disco — Music Discovery</title>
 
@@ -61,7 +60,6 @@
       color: #000; font-weight: 700; font-size: 14px;
       background: #1DB954; border: none; border-radius: 10px;
       padding: 11px 16px; cursor: pointer; white-space: nowrap;
-      transition: background .2s;
     }
     .search-submit:active { background: #1aa84b; }
     .cancel-btn { color: #fff; font-weight: 600; font-size: 15px; cursor: pointer; padding: 8px 0; background: none; border: none; white-space: nowrap; }
@@ -120,46 +118,94 @@
     .comments-sheet .send { background: #fff; color: #000; border: none; padding: 0 20px; border-radius: 20px; font-weight: 600; font-size: 14px; cursor: pointer; }
 
     /* Loading & Empty */
-    .loading { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 20; transition: opacity .3s; pointer-events: none; }
+    .loading { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 20; pointer-events: none; }
     .loading.active { display: flex; opacity: 1; }
     .spinner { width: 32px; height: 32px; border: 3px solid rgba(255,255,255,.1); border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .empty-state { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 15; color: #888; gap: 10px; background: #000; }
+    .empty-state { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 15; color: #888; gap: 10px; background: #000; padding: 24px; }
     .empty-state.active { display: flex; }
     .empty-state .icon { font-size: 40px; margin-bottom: 10px; }
-    .empty-state .title { font-size: 18px; font-weight: 600; color: #fff; }
+    .empty-state .title { font-size: 18px; font-weight: 600; color: #fff; text-align: center; }
     .empty-state .subtitle { font-size: 14px; text-align: center; max-width: 80%; opacity: 0.7; }
+    .empty-state .retry-btn { margin-top: 16px; padding: 10px 24px; background: #1DB954; color: #000; border: none; border-radius: 20px; font-weight: 700; font-size: 14px; cursor: pointer; display: none; }
+    .empty-state .retry-btn.visible { display: inline-block; }
 
     svg { display: block; }
-  </style>
 
-  <script>
-    (function () {
-      const iconSvg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' fill='#000' rx='40'/><circle cx='96' cy='96' r='52' fill='#1DB954'/><circle cx='96' cy='96' r='14' fill='#000'/></svg>`;
-      const iconUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(iconSvg);
-      const manifest = {
-        name: 'Disco Music Discovery',
-        short_name: 'Disco',
-        start_url: window.location.origin + window.location.pathname,
-        display: 'standalone',
-        background_color: '#000000',
-        theme_color: '#000000',
-        icons: [{ src: iconUrl, sizes: '192x192', type: 'image/svg+xml', purpose: 'any maskable' }]
-      };
-      const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
-      const link = document.createElement('link');
-      link.rel = 'manifest';
-      link.href = URL.createObjectURL(blob);
-      document.head.appendChild(link);
-      console.log('%c[Disco] v21.1 — Fetch API + robust error handling', 'color:#1DB954;font-weight:bold');
-    })();
-  </script>
+    /* ---- DEBUG PANEL ---- */
+    #debug-btn {
+      position: fixed;
+      bottom: calc(12px + env(safe-area-inset-bottom));
+      right: 12px;
+      width: 30px; height: 30px; border-radius: 50%;
+      background: rgba(255,255,255,0.15);
+      color: rgba(255,255,255,0.5);
+      border: 1px solid rgba(255,255,255,0.15);
+      font-size: 13px;
+      z-index: 99998;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0.5;
+      transition: opacity 0.2s, background 0.2s;
+      font-family: inherit;
+    }
+    #debug-btn.has-errors {
+      background: rgba(255,45,85,0.85);
+      color: #fff;
+      opacity: 1;
+      animation: dbg-pulse 1.4s infinite;
+    }
+    @keyframes dbg-pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.12); }
+    }
+    #debug-panel {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: 50vh;
+      background: rgba(8,8,10,0.97);
+      color: #fff;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 10px; line-height: 1.35;
+      z-index: 99997;
+      display: none;
+      flex-direction: column;
+      border-top: 1px solid #1DB954;
+      padding-bottom: env(safe-area-inset-bottom);
+      backdrop-filter: blur(10px);
+    }
+    #debug-panel.open { display: flex; }
+    #debug-panel .dbg-head {
+      display: flex; gap: 6px; padding: 8px; border-bottom: 1px solid #222;
+      align-items: center; flex-shrink: 0;
+    }
+    #debug-panel .dbg-head strong { color: #1DB954; font-size: 11px; }
+    #debug-panel .dbg-status { flex: 1; color: #666; font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #debug-panel .dbg-head button {
+      background: #222; color: #fff; border: none; border-radius: 4px;
+      padding: 5px 9px; font-size: 10px; font-weight: 600; cursor: pointer;
+      font-family: inherit;
+    }
+    #debug-panel .dbg-head button.primary { background: #1DB954; color: #000; }
+    #debug-panel .dbg-log {
+      flex: 1; overflow-y: auto; padding: 6px 8px;
+      -webkit-overflow-scrolling: touch;
+    }
+    #debug-panel .dbg-row {
+      padding: 2px 0; word-break: break-all; white-space: pre-wrap;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+    #debug-panel .dbg-row .ts { color: #555; }
+    #debug-panel .dbg-row.info  { color: #aaa; }
+    #debug-panel .dbg-row.success { color: #1DB954; }
+    #debug-panel .dbg-row.warn  { color: #f5a623; }
+    #debug-panel .dbg-row.error { color: #ff5577; }
+    #debug-panel .dbg-row.net   { color: #4a90e2; }
+  </style>
 </head>
 <body>
 
 <div id="app-root">
-  <!-- HUD -->
   <div class="hud" id="hud">
     <div class="brand"><div class="dot"></div>Disco</div>
     <div class="tabs">
@@ -171,7 +217,6 @@
     </button>
   </div>
 
-  <!-- Search Bar -->
   <div class="search-bar" id="search-bar">
     <form class="search-form" id="search-form">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="#888"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
@@ -181,592 +226,774 @@
     <button class="cancel-btn" id="cancel-btn" type="button">Отмена</button>
   </div>
 
-  <!-- Feed -->
   <div class="feed-container" id="feed-container"></div>
 
-  <!-- Empty State -->
   <div class="empty-state" id="empty-state">
     <div class="icon">🔍</div>
     <div class="title" id="empty-title">Ничего не найдено</div>
     <div class="subtitle" id="empty-subtitle">Попробуйте изменить запрос.</div>
+    <button class="retry-btn" id="retry-btn">Повторить</button>
   </div>
 
-  <!-- Loading -->
   <div class="loading" id="loading"><div class="spinner"></div></div>
 </div>
 
 <script>
-  const ICONS = {
-    heart: 'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z',
-    comment: 'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z',
-    share: 'M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z',
-    close: 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
-    external: 'M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z'
-  };
-  const svg = (n, s = 24, f = '#fff') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="${f}" xmlns="http://www.w3.org/2000/svg"><path d="${ICONS[n] || ''}"/></svg>`;
+/* =========================================================
+   DEBUG PANEL
+   ========================================================= */
+const Debug = (function () {
+  const MAX_ENTRIES = 200;
+  const entries = [];
+  let panelOpen = false;
+  let errorCount = 0;
 
-  // ----- Глобальное состояние -----
-  let feedTracks = [];
-  let likedTracks = JSON.parse(localStorage.getItem('disco_liked_tracks') || '[]');
-  let activeIndex = 0;
-  let currentView = 'feed';
-  let tracks = feedTracks;
-  let currentQuery = 'taylor swift';
-  let requestSeq = 0;
-  let currentAudio = null;
+  const btn = document.createElement('button');
+  btn.id = 'debug-btn';
+  btn.textContent = '🐞';
+  btn.title = 'Открыть дебаг-панель';
 
-  // DOM-элементы
-  const feedContainer = document.getElementById('feed-container');
-  const loadingEl = document.getElementById('loading');
-  const emptyStateEl = document.getElementById('empty-state');
-  const emptyTitle = document.getElementById('empty-title');
-  const emptySubtitle = document.getElementById('empty-subtitle');
-  const hudEl = document.getElementById('hud');
-  const searchBar = document.getElementById('search-bar');
-  const searchInput = document.getElementById('search-input');
-  const tabFeed = document.getElementById('tab-feed');
-  const tabLiked = document.getElementById('tab-liked');
-  const searchBtn = document.getElementById('search-btn');
-  const cancelBtn = document.getElementById('cancel-btn');
-  const searchForm = document.getElementById('search-form');
-  const searchSubmit = document.getElementById('search-submit');
+  const panel = document.createElement('div');
+  panel.id = 'debug-panel';
+  panel.innerHTML = `
+    <div class="dbg-head">
+      <strong>Debug</strong>
+      <span class="dbg-status" id="dbg-status">—</span>
+      <button id="dbg-diag" class="primary">Diagnose</button>
+      <button id="dbg-copy">Copy</button>
+      <button id="dbg-clear">Clear</button>
+      <button id="dbg-close">✕</button>
+    </div>
+    <div class="dbg-log" id="dbg-log"></div>
+  `;
 
-  let cardHeight = window.innerHeight;
+  let logArea;
 
-  function updateHeight() {
-    cardHeight = feedContainer.clientHeight;
-  }
-  window.addEventListener('resize', updateHeight);
+  function add(type, args) {
+    const ts = new Date().toISOString().slice(11, 23);
+    let msg;
+    try {
+      msg = Array.from(args).map(a => {
+        if (a instanceof Error) return `${a.name}: ${a.message}`;
+        if (typeof a === 'object' && a !== null) {
+          try { return JSON.stringify(a); } catch (_) { return String(a); }
+        }
+        return String(a);
+      }).join(' ');
+    } catch (_) { msg = '(unserializable)'; }
 
-  function fmt(n) {
-    return n >= 1000 ? (n / 1000).toFixed(1) + 'K' : n;
-  }
+    entries.push({ type, msg, ts });
+    if (entries.length > MAX_ENTRIES) entries.shift();
 
-  // ----- Остановка всего аудио -----
-  function stopAllAudio() {
-    if (currentAudio) {
-      try { currentAudio.pause(); currentAudio.currentTime = 0; } catch (_) {}
-      currentAudio = null;
+    if (logArea) {
+      const row = document.createElement('div');
+      row.className = 'dbg-row ' + type;
+      row.innerHTML = `<span class="ts">[${ts}]</span> ${escapeHtml(type.toUpperCase())}: ${escapeHtml(msg)}`;
+      logArea.appendChild(row);
+      while (logArea.children.length > MAX_ENTRIES) logArea.removeChild(logArea.firstChild);
+      logArea.scrollTop = logArea.scrollHeight;
     }
-    feedContainer.querySelectorAll('.track-card').forEach(c => {
-      if (c.audio) {
-        try { c.audio.pause(); c.audio.currentTime = 0; } catch (_) {}
+
+    if (type === 'error') {
+      errorCount++;
+      btn.classList.add('has-errors');
+      btn.textContent = '⚠';
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function toggle() {
+    panelOpen = !panelOpen;
+    panel.classList.toggle('open', panelOpen);
+  }
+
+  function mount() {
+    document.body.appendChild(btn);
+    document.body.appendChild(panel);
+    logArea = document.getElementById('dbg-log');
+
+    btn.addEventListener('click', toggle);
+    document.getElementById('dbg-close').addEventListener('click', toggle);
+
+    document.getElementById('dbg-copy').addEventListener('click', () => {
+      const text = entries.map(e => `[${e.ts}] ${e.type.toUpperCase()}: ${e.msg}`).join('\n');
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => {
+          const b = document.getElementById('dbg-copy');
+          b.textContent = '✓ Copied';
+          setTimeout(() => { b.textContent = 'Copy'; }, 1200);
+        }).catch(() => alert('Не удалось скопировать'));
+      } else {
+        alert(text);
       }
     });
+
+    document.getElementById('dbg-clear').addEventListener('click', () => {
+      entries.length = 0;
+      errorCount = 0;
+      logArea.innerHTML = '';
+      btn.classList.remove('has-errors');
+      btn.textContent = '🐞';
+    });
+
+    document.getElementById('dbg-diag').addEventListener('click', () => {
+      if (typeof window.__diagnose === 'function') window.__diagnose();
+    });
+
+    // Environment snapshot
+    add('info', ['UA:', navigator.userAgent]);
+    add('info', ['URL:', location.href]);
+    add('info', ['Online:', navigator.onLine, '| Viewport:', innerWidth + 'x' + innerHeight]);
   }
 
-  // ----- Загрузка треков через Fetch API -----
-  async function fetchTracks() {
-    const encodedTerm = encodeURIComponent(currentQuery);
-    const url = `https://itunes.apple.com/search?term=${encodedTerm}&media=music&entity=song&limit=50&country=us`;
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', mount);
+  } else {
+    mount();
+  }
 
-    try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Network response was not ok');
-      const data = await response.json();
-      
-      const results = data.results || [];
-      const collected = [];
-      for (const t of results) {
-        if (!t.previewUrl || !t.artworkUrl100) continue;
-        collected.push({
-          id: t.trackId,
-          name: t.trackName,
-          artist: t.artistName,
-          album: t.collectionName,
-          image: t.artworkUrl100.replace('100x100bb', '600x600bb'),
-          previewUrl: t.previewUrl,
-          storeUrl: t.trackViewUrl,
-          genres: t.primaryGenreName ? [t.primaryGenreName] : [],
-          likeCount: Math.floor(Math.random() * 5000) + 500
-        });
-      }
-      return collected;
-    } catch (err) {
-      console.warn('API Error:', err);
-      return null; // null означает ошибку сети, а не пустой результат
+  return {
+    info:    (...a) => add('info', a),
+    success: (...a) => add('success', a),
+    warn:    (...a) => add('warn', a),
+    error:   (...a) => add('error', a),
+    net:     (...a) => add('net', a),
+    status:  (t) => { const el = document.getElementById('dbg-status'); if (el) el.textContent = t; },
+  };
+})();
+
+// Перехват console.*
+['log', 'warn', 'error'].forEach((m) => {
+  const orig = console[m];
+  console[m] = function (...args) {
+    try { Debug[m === 'log' ? 'info' : m](...args); } catch (_) {}
+    if (orig) orig.apply(console, args);
+  };
+});
+window.addEventListener('error', (e) => {
+  Debug.error('window.onerror:', e.message, '@', e.filename + ':' + e.lineno + ':' + e.colno);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  Debug.error('unhandledrejection:', String(e.reason));
+});
+
+/* =========================================================
+   APP CODE
+   ========================================================= */
+const ICONS = {
+  heart: 'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z',
+  comment: 'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z',
+  share: 'M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z',
+  close: 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
+  external: 'M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z'
+};
+const svg = (n, s = 24, f = '#fff') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="${f}" xmlns="http://www.w3.org/2000/svg"><path d="${ICONS[n] || ''}"/></svg>`;
+
+let feedTracks = [];
+let likedTracks = JSON.parse(localStorage.getItem('disco_liked_tracks') || '[]');
+let activeIndex = 0;
+let currentView = 'feed';
+let tracks = feedTracks;
+let currentQuery = 'taylor swift';
+let requestSeq = 0;
+let currentAudio = null;
+let jsonpCounter = 0;
+
+const feedContainer = document.getElementById('feed-container');
+const loadingEl = document.getElementById('loading');
+const emptyStateEl = document.getElementById('empty-state');
+const emptyTitle = document.getElementById('empty-title');
+const emptySubtitle = document.getElementById('empty-subtitle');
+const retryBtn = document.getElementById('retry-btn');
+const hudEl = document.getElementById('hud');
+const searchBar = document.getElementById('search-bar');
+const searchInput = document.getElementById('search-input');
+const tabFeed = document.getElementById('tab-feed');
+const tabLiked = document.getElementById('tab-liked');
+const searchBtn = document.getElementById('search-btn');
+const cancelBtn = document.getElementById('cancel-btn');
+const searchForm = document.getElementById('search-form');
+const searchSubmit = document.getElementById('search-submit');
+
+let cardHeight = window.innerHeight;
+function updateHeight() { cardHeight = feedContainer.clientHeight; }
+window.addEventListener('resize', updateHeight);
+
+function fmt(n) { return n >= 1000 ? (n / 1000).toFixed(1) + 'K' : n; }
+
+function stopAllAudio() {
+  if (currentAudio) {
+    try { currentAudio.pause(); currentAudio.currentTime = 0; } catch (_) {}
+    currentAudio = null;
+  }
+  feedContainer.querySelectorAll('.track-card').forEach(c => {
+    if (c.audio) {
+      try { c.audio.pause(); c.audio.currentTime = 0; } catch (_) {}
     }
+  });
+}
+
+/* ---------- JSONP ---------- */
+function jsonpFetch(url, timeoutMs = 15000) {
+  return new Promise((resolve, reject) => {
+    const cbName = 'itunesJsonp_' + (++jsonpCounter) + '_' + Date.now();
+    let done = false;
+
+    window[cbName] = (data) => {
+      if (done) return;
+      done = true;
+      Debug.success('jsonp:', 'callback fired, type:', typeof data);
+      cleanup();
+      resolve(data);
+    };
+
+    function cleanup() {
+      if (script.parentNode) script.parentNode.removeChild(script);
+      try { delete window[cbName]; } catch (_) { window[cbName] = undefined; }
+    }
+
+    const script = document.createElement('script');
+    const fullUrl = url + (url.includes('?') ? '&' : '?') + 'callback=' + cbName;
+    script.src = fullUrl;
+    Debug.info('jsonp:', 'src:', fullUrl.slice(0, 200) + (fullUrl.length > 200 ? '…' : ''));
+    script.onerror = () => {
+      if (done) return;
+      done = true;
+      Debug.error('jsonp:', 'script.onerror (network or block)');
+      cleanup();
+      reject(new Error('Script load error'));
+    };
+    script.onload = () => {
+      Debug.info('jsonp:', 'script.onload (waiting for callback)');
+    };
+    document.body.appendChild(script);
+
+    setTimeout(() => {
+      if (done) return;
+      done = true;
+      Debug.error('jsonp:', 'TIMEOUT after', timeoutMs, 'ms — callback never fired');
+      cleanup();
+      reject(new Error('Timeout'));
+    }, timeoutMs);
+  });
+}
+
+/* ---------- Parse ---------- */
+function parseTracks(data) {
+  const results = (data && data.results) || [];
+  Debug.info('parse:', 'resultCount from API:', data && data.resultCount, '| results array length:', results.length);
+  const collected = [];
+  for (const t of results) {
+    if (!t.previewUrl || !t.artworkUrl100) {
+      Debug.warn('parse:', 'skip (no preview/artwork):', t.trackName || t.trackId);
+      continue;
+    }
+    collected.push({
+      id: t.trackId,
+      name: t.trackName,
+      artist: t.artistName,
+      album: t.collectionName,
+      image: t.artworkUrl100.replace('100x100bb', '600x600bb'),
+      previewUrl: t.previewUrl,
+      storeUrl: t.trackViewUrl,
+      genres: t.primaryGenreName ? [t.primaryGenreName] : [],
+      likeCount: Math.floor(Math.random() * 5000) + 500,
+    });
+  }
+  Debug.info('parse:', 'usable tracks:', collected.length);
+  return collected;
+}
+
+/* ---------- Dual-strategy fetch ---------- */
+async function fetchTracks() {
+  const baseUrl = 'https://itunes.apple.com/search?' +
+    'term=' + encodeURIComponent(currentQuery) +
+    '&media=music&entity=song&limit=50&country=us';
+
+  Debug.status('loading…');
+  Debug.info('fetchTracks:', 'query =', JSON.stringify(currentQuery));
+  Debug.info('fetchTracks:', 'baseUrl =', baseUrl);
+
+  // === Strategy 1: JSONP ===
+  const t0 = performance.now();
+  try {
+    const data = await jsonpFetch(baseUrl, 15000);
+    Debug.success('fetchTracks:', 'JSONP OK in', (performance.now() - t0).toFixed(0) + 'ms');
+    return parseTracks(data);
+  } catch (e) {
+    Debug.warn('fetchTracks:', 'JSONP failed:', e.message);
   }
 
-  // ----- Создание карточки -----
-  function createCard(track, position) {
-    const card = document.createElement('div');
-    card.className = 'track-card';
-    card.style.transform = `translateY(${position * 100}%)`;
-    card.dataset.position = position;
+  // === Strategy 2: fetch ===
+  const t1 = performance.now();
+  try {
+    Debug.info('fetch:', 'attempting', baseUrl);
+    const res = await fetch(baseUrl, { mode: 'cors', cache: 'no-store', credentials: 'omit' });
+    const elapsed = (performance.now() - t1).toFixed(0);
+    Debug.info('fetch:', 'status', res.status, 'in', elapsed + 'ms');
+    try {
+      const hdrs = {};
+      res.headers.forEach((v, k) => hdrs[k] = v);
+      Debug.info('fetch:', 'headers:', JSON.stringify(hdrs).slice(0, 300));
+    } catch (_) {}
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    Debug.info('fetch:', 'body length:', text.length);
+    Debug.info('fetch:', 'preview:', text.slice(0, 250));
+    const data = JSON.parse(text);
+    Debug.success('fetchTracks:', 'fetch OK');
+    return parseTracks(data);
+  } catch (e) {
+    Debug.error('fetchTracks:', 'fetch failed:', e.name + ' / ' + e.message);
+  }
 
-    const isLiked = likedTracks.some(t => t.id === track.id);
-    const displayLikes = fmt((track.likeCount || 0) + (isLiked ? 1 : 0));
+  // === Both failed ===
+  Debug.error('fetchTracks:', 'ALL STRATEGIES FAILED');
+  Debug.status('failed');
+  throw new Error('All fetch strategies failed');
+}
 
-    card.innerHTML = `
-      <div class="bg" style="background-image: url('${track.image}')"></div>
-      <div class="gradient"></div>
-      <div class="content">
-        <div class="center">
-          <img class="cover" src="${track.image}" alt="cover">
+/* ---------- Card ---------- */
+function createCard(track, position) {
+  const card = document.createElement('div');
+  card.className = 'track-card';
+  card.style.transform = `translateY(${position * 100}%)`;
+  card.dataset.position = position;
+
+  const isLiked = likedTracks.some(t => t.id === track.id);
+  const displayLikes = fmt((track.likeCount || 0) + (isLiked ? 1 : 0));
+
+  card.innerHTML = `
+    <div class="bg" style="background-image: url('${track.image}')"></div>
+    <div class="gradient"></div>
+    <div class="content">
+      <div class="center"><img class="cover" src="${track.image}" alt="cover"></div>
+      <div class="bottom">
+        <div class="info">
+          <div class="title">${track.name}</div>
+          <div class="artist">${track.artist}</div>
+          <div class="album">${track.album || ''}</div>
+          <div class="tag">#${track.genres[0] || 'Music'}</div>
+          <a class="store" href="${track.storeUrl}" target="_blank" rel="noopener">
+            ${svg('external', 14, '#000')} Слушать полностью
+          </a>
         </div>
-        <div class="bottom">
-          <div class="info">
-            <div class="title">${track.name}</div>
-            <div class="artist">${track.artist}</div>
-            <div class="album">${track.album || ''}</div>
-            <div class="tag">#${track.genres[0] || 'Music'}</div>
-            <a class="store" href="${track.storeUrl}" target="_blank" rel="noopener">
-              ${svg('external', 14, '#000')} Слушать полностью
-            </a>
-          </div>
-          <div class="sidebar">
-            <button class="action-btn ${isLiked ? 'active' : ''}" data-action="like">
-              <div class="btn-icon">${svg('heart', 22, isLiked ? '#ff2d55' : '#fff')}</div>
-              <span class="count">${displayLikes}</span>
-            </button>
-            <button class="action-btn" data-action="comment">
-              <div class="btn-icon">${svg('comment', 22, '#fff')}</div>
-              <span class="count">154</span>
-            </button>
-            <button class="action-btn" data-action="share">
-              <div class="btn-icon">${svg('share', 22, '#fff')}</div>
-            </button>
-          </div>
+        <div class="sidebar">
+          <button class="action-btn ${isLiked ? 'active' : ''}" data-action="like">
+            <div class="btn-icon">${svg('heart', 22, isLiked ? '#ff2d55' : '#fff')}</div>
+            <span class="count">${displayLikes}</span>
+          </button>
+          <button class="action-btn" data-action="comment">
+            <div class="btn-icon">${svg('comment', 22, '#fff')}</div>
+            <span class="count">154</span>
+          </button>
+          <button class="action-btn" data-action="share">
+            <div class="btn-icon">${svg('share', 22, '#fff')}</div>
+          </button>
         </div>
       </div>
-      <div class="audio-progress"><div class="fill"></div></div>
-      <div class="comments-sheet" opened="false">
-        <div class="backdrop"></div>
-        <div class="sheet">
-          <div class="handle"><div class="handle-bar"></div></div>
-          <div class="header">
-            <span>Комментарии</span>
-            <button class="close">${svg('close', 20, '#888')}</button>
-          </div>
-          <div class="body">
-            <div class="comment">
-              <div class="avatar">M</div>
-              <div class="c-body">
-                <div class="c-author">MusicLover</div>
-                <div class="c-text">Этот трек просто пушка! 🔥</div>
-              </div>
+    </div>
+    <div class="audio-progress"><div class="fill"></div></div>
+    <div class="comments-sheet" opened="false">
+      <div class="backdrop"></div>
+      <div class="sheet">
+        <div class="handle"><div class="handle-bar"></div></div>
+        <div class="header">
+          <span>Комментарии</span>
+          <button class="close">${svg('close', 20, '#888')}</button>
+        </div>
+        <div class="body">
+          <div class="comment">
+            <div class="avatar">M</div>
+            <div class="c-body">
+              <div class="c-author">MusicLover</div>
+              <div class="c-text">Этот трек просто пушка! 🔥</div>
             </div>
           </div>
-          <div class="input-bar">
-            <input type="text" placeholder="Добавить..." maxlength="100">
-            <button class="send">Отправить</button>
-          </div>
+        </div>
+        <div class="input-bar">
+          <input type="text" placeholder="Добавить..." maxlength="100">
+          <button class="send">Отправить</button>
         </div>
       </div>
-    `;
+    </div>
+  `;
 
-    // ----- Аудио -----
-    const audio = new Audio(track.previewUrl);
-    audio.preload = 'auto';
+  const audio = new Audio(track.previewUrl);
+  audio.preload = 'auto';
+  audio.volume = 0;
+  let fadeInterval = null;
+
+  audio.addEventListener('timeupdate', () => {
+    const fill = card.querySelector('.audio-progress .fill');
+    if (!fill) return;
+    const duration = audio.duration || 1;
+    fill.style.width = `${(audio.currentTime / duration) * 100}%`;
+  });
+  audio.addEventListener('ended', () => {
+    const fill = card.querySelector('.audio-progress .fill');
+    if (fill) fill.style.width = '0%';
+  });
+  audio.addEventListener('error', () => {
+    Debug.warn('audio:', 'error on', track.name, '| code:', audio.error && audio.error.code);
+  });
+
+  function fadeAudio(from, to, ms) {
+    if (fadeInterval) clearInterval(fadeInterval);
+    const steps = 20;
+    let i = 0;
+    fadeInterval = setInterval(() => {
+      i++;
+      const t = i / steps;
+      audio.volume = Math.max(0, Math.min(1, from + (to - from) * t));
+      if (i >= steps) { clearInterval(fadeInterval); fadeInterval = null; }
+    }, Math.max(10, ms / steps));
+  }
+
+  card.play = () => {
+    if (currentAudio && currentAudio !== audio) {
+      try { currentAudio.pause(); currentAudio.currentTime = 0; } catch (_) {}
+    }
+    currentAudio = audio;
     audio.volume = 0;
-    let fadeInterval = null;
-
-    audio.addEventListener('timeupdate', () => {
-      const fill = card.querySelector('.audio-progress .fill');
-      if (!fill) return;
-      const duration = audio.duration || 1;
-      fill.style.width = `${(audio.currentTime / duration) * 100}%`;
+    audio.currentTime = 0;
+    audio.play().then(() => fadeAudio(0, 1, 400)).catch(e => {
+      Debug.warn('audio:', 'play rejected:', e.message);
     });
+  };
 
-    audio.addEventListener('ended', () => {
-      const fill = card.querySelector('.audio-progress .fill');
-      if (fill) fill.style.width = '0%';
-    });
+  const likeBtn = card.querySelector('[data-action="like"]');
+  likeBtn.addEventListener('click', () => {
+    const wasLiked = likedTracks.some(t => t.id === track.id);
+    if (wasLiked) likedTracks = likedTracks.filter(t => t.id !== track.id);
+    else likedTracks.push(track);
+    localStorage.setItem('disco_liked_tracks', JSON.stringify(likedTracks));
 
-    function fadeAudio(from, to, ms) {
-      if (fadeInterval) clearInterval(fadeInterval);
-      const steps = 20;
-      let i = 0;
-      fadeInterval = setInterval(() => {
-        i++;
-        const t = i / steps;
-        audio.volume = Math.max(0, Math.min(1, from + (to - from) * t));
-        if (i >= steps) { clearInterval(fadeInterval); fadeInterval = null; }
-      }, Math.max(10, ms / steps));
-    }
+    const nowLiked = !wasLiked;
+    likeBtn.classList.toggle('active', nowLiked);
+    const ico = likeBtn.querySelector('svg');
+    if (ico) ico.style.fill = nowLiked ? '#ff2d55' : '#fff';
+    const cnt = likeBtn.querySelector('.count');
+    if (cnt) cnt.textContent = fmt((track.likeCount || 0) + (nowLiked ? 1 : 0));
 
-    card.play = () => {
-      if (currentAudio && currentAudio !== audio) {
-        try { currentAudio.pause(); currentAudio.currentTime = 0; } catch (_) {}
-      }
-      currentAudio = audio;
-      audio.volume = 0;
-      audio.currentTime = 0;
-      audio.play().then(() => fadeAudio(0, 1, 400)).catch(() => {});
-    };
-
-    card.reset = () => {
-      audio.pause();
-      audio.currentTime = 0;
-      audio.volume = 0;
-      if (fadeInterval) { clearInterval(fadeInterval); fadeInterval = null; }
-      const fill = card.querySelector('.audio-progress .fill');
-      if (fill) fill.style.width = '0%';
-      if (currentAudio === audio) currentAudio = null;
-    };
-
-    // ----- Лайк -----
-    const likeBtn = card.querySelector('[data-action="like"]');
-    likeBtn.addEventListener('click', () => {
-      const wasLiked = likedTracks.some(t => t.id === track.id);
-      if (wasLiked) {
-        likedTracks = likedTracks.filter(t => t.id !== track.id);
-      } else {
-        likedTracks.push(track);
-      }
-      localStorage.setItem('disco_liked_tracks', JSON.stringify(likedTracks));
-
-      const nowLiked = !wasLiked;
-      likeBtn.classList.toggle('active', nowLiked);
-      const ico = likeBtn.querySelector('svg');
-      if (ico) ico.style.fill = nowLiked ? '#ff2d55' : '#fff';
-      const cnt = likeBtn.querySelector('.count');
-      if (cnt) cnt.textContent = fmt((track.likeCount || 0) + (nowLiked ? 1 : 0));
-
-      if (currentView === 'liked' && wasLiked) {
-        tracks = likedTracks;
-        if (tracks.length === 0) {
-          stopAllAudio();
-          emptyTitle.textContent = 'Нет избранных треков';
-          emptySubtitle.textContent = 'Добавьте треки в избранное, чтобы они появились здесь.';
-          emptyStateEl.classList.add('active');
-          feedContainer.innerHTML = '';
-        } else {
-          if (activeIndex >= tracks.length) activeIndex = tracks.length - 1;
-          renderWindow(true);
-        }
-      }
-    });
-
-    // ----- Шторка комментариев -----
-    const sheet = card.querySelector('.comments-sheet');
-    const sheetEl = card.querySelector('.sheet');
-    const handle = card.querySelector('.handle');
-
-    const openSheet = () => {
-      sheet.setAttribute('opened', 'true');
-      card.dataset.sheetOpen = 'true';
-      audio.volume = 0.1;
-    };
-    const closeSheet = () => {
-      sheet.setAttribute('opened', 'false');
-      delete card.dataset.sheetOpen;
-      audio.volume = 1;
-      sheetEl.style.transform = '';
-      sheetEl.style.transition = '';
-    };
-    card.querySelector('[data-action="comment"]').addEventListener('click', openSheet);
-    card.querySelector('.close').addEventListener('click', closeSheet);
-    card.querySelector('.backdrop').addEventListener('click', closeSheet);
-
-    // Свайп шторки
-    let startY = 0, curY = 0, isDragging = false;
-
-    const onSheetMove = (e) => {
-      if (!isDragging) return;
-      const y = e.touches ? e.touches[0].clientY : e.clientY;
-      const d = y - startY;
-      if (d > 0) {
-        curY = d;
-        sheetEl.style.transition = 'none';
-        sheetEl.style.transform = `translateY(${d}px)`;
-        if (e.cancelable) e.preventDefault();
-      }
-    };
-    const onSheetEnd = () => {
-      if (!isDragging) return;
-      isDragging = false;
-      sheetEl.style.transition = '';
-      if (curY > sheetEl.offsetHeight * 0.25) {
-        closeSheet();
-      } else {
-        sheetEl.style.transform = '';
-      }
-      curY = 0;
-    };
-
-    handle.addEventListener('touchstart', (e) => {
-      startY = e.touches[0].clientY;
-      isDragging = true;
-      const move = (ev) => onSheetMove(ev);
-      const end = () => {
-        onSheetEnd();
-        sheetEl.removeEventListener('touchmove', move);
-        sheetEl.removeEventListener('touchend', end);
-      };
-      sheetEl.addEventListener('touchmove', move, { passive: false });
-      sheetEl.addEventListener('touchend', end);
-    }, { passive: true });
-
-    handle.addEventListener('mousedown', (e) => {
-      startY = e.clientY;
-      isDragging = true;
-      const move = (ev) => onSheetMove(ev);
-      const end = () => {
-        onSheetEnd();
-        window.removeEventListener('mousemove', move);
-        window.removeEventListener('mouseup', end);
-      };
-      window.addEventListener('mousemove', move);
-      window.addEventListener('mouseup', end);
-    });
-
-    // ----- Share -----
-    card.querySelector('[data-action="share"]').addEventListener('click', async () => {
-      if (navigator.share) {
-        try { await navigator.share({ title: track.name, url: track.storeUrl }); } catch (_) {}
-      } else if (navigator.clipboard) {
-        try { await navigator.clipboard.writeText(track.storeUrl); alert('Ссылка скопирована!'); }
-        catch (_) {}
-      }
-    });
-
-    card.audio = audio;
-    return card;
-  }
-
-  // ----- Отрисовка окна (3 карточки) -----
-  function renderWindow(autoplay = false) {
-    stopAllAudio();
-
-    if (tracks.length === 0) {
-      feedContainer.innerHTML = '';
-      return;
-    }
-
-    feedContainer.innerHTML = '';
-
-    const prevIndex = activeIndex - 1;
-    const nextIndex = activeIndex + 1;
-
-    if (prevIndex >= 0) {
-      feedContainer.appendChild(createCard(tracks[prevIndex], -1));
-    }
-    const mainCard = createCard(tracks[activeIndex], 0);
-    feedContainer.appendChild(mainCard);
-    if (nextIndex < tracks.length) {
-      feedContainer.appendChild(createCard(tracks[nextIndex], 1));
-    }
-
-    if (autoplay && mainCard.play) {
-      setTimeout(() => mainCard.play(), 50);
-    }
-  }
-
-  // ----- Переключение вкладки -----
-  function setView(view) {
-    stopAllAudio();
-    currentView = view;
-    if (view === 'feed') {
-      tabFeed.classList.add('active');
-      tabLiked.classList.remove('active');
-      tracks = feedTracks;
-    } else {
-      tabLiked.classList.add('active');
-      tabFeed.classList.remove('active');
+    if (currentView === 'liked' && wasLiked) {
       tracks = likedTracks;
+      if (tracks.length === 0) {
+        stopAllAudio();
+        showEmpty('Нет избранных треков', 'Добавьте треки в избранное.', false);
+      } else {
+        if (activeIndex >= tracks.length) activeIndex = tracks.length - 1;
+        renderWindow(true);
+      }
     }
-    activeIndex = 0;
+  });
+
+  const sheet = card.querySelector('.comments-sheet');
+  const sheetEl = card.querySelector('.sheet');
+  const handle = card.querySelector('.handle');
+
+  const openSheet = () => {
+    sheet.setAttribute('opened', 'true');
+    card.dataset.sheetOpen = 'true';
+    audio.volume = 0.1;
+  };
+  const closeSheet = () => {
+    sheet.setAttribute('opened', 'false');
+    delete card.dataset.sheetOpen;
+    audio.volume = 1;
+    sheetEl.style.transform = '';
+    sheetEl.style.transition = '';
+  };
+  card.querySelector('[data-action="comment"]').addEventListener('click', openSheet);
+  card.querySelector('.close').addEventListener('click', closeSheet);
+  card.querySelector('.backdrop').addEventListener('click', closeSheet);
+
+  let startY = 0, curY = 0, isDragging = false;
+  const onSheetMove = (e) => {
+    if (!isDragging) return;
+    const y = e.touches ? e.touches[0].clientY : e.clientY;
+    const d = y - startY;
+    if (d > 0) {
+      curY = d;
+      sheetEl.style.transition = 'none';
+      sheetEl.style.transform = `translateY(${d}px)`;
+      if (e.cancelable) e.preventDefault();
+    }
+  };
+  const onSheetEnd = () => {
+    if (!isDragging) return;
+    isDragging = false;
+    sheetEl.style.transition = '';
+    if (curY > sheetEl.offsetHeight * 0.25) closeSheet();
+    else sheetEl.style.transform = '';
+    curY = 0;
+  };
+  handle.addEventListener('touchstart', (e) => {
+    startY = e.touches[0].clientY;
+    isDragging = true;
+    const move = (ev) => onSheetMove(ev);
+    const end = () => {
+      onSheetEnd();
+      sheetEl.removeEventListener('touchmove', move);
+      sheetEl.removeEventListener('touchend', end);
+    };
+    sheetEl.addEventListener('touchmove', move, { passive: false });
+    sheetEl.addEventListener('touchend', end);
+  }, { passive: true });
+  handle.addEventListener('mousedown', (e) => {
+    startY = e.clientY;
+    isDragging = true;
+    const move = (ev) => onSheetMove(ev);
+    const end = () => {
+      onSheetEnd();
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', end);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+  });
+
+  card.querySelector('[data-action="share"]').addEventListener('click', async () => {
+    if (navigator.share) {
+      try { await navigator.share({ title: track.name, url: track.storeUrl }); } catch (_) {}
+    } else if (navigator.clipboard) {
+      try { await navigator.clipboard.writeText(track.storeUrl); } catch (_) {}
+    }
+  });
+
+  card.audio = audio;
+  return card;
+}
+
+function renderWindow(autoplay = false) {
+  stopAllAudio();
+  if (tracks.length === 0) { feedContainer.innerHTML = ''; return; }
+  feedContainer.innerHTML = '';
+
+  const prevIndex = activeIndex - 1;
+  const nextIndex = activeIndex + 1;
+
+  if (prevIndex >= 0) feedContainer.appendChild(createCard(tracks[prevIndex], -1));
+  const mainCard = createCard(tracks[activeIndex], 0);
+  feedContainer.appendChild(mainCard);
+  if (nextIndex < tracks.length) feedContainer.appendChild(createCard(tracks[nextIndex], 1));
+
+  if (autoplay && mainCard.play) setTimeout(() => mainCard.play(), 50);
+}
+
+function showEmpty(title, subtitle, isError) {
+  emptyTitle.textContent = title;
+  emptySubtitle.textContent = subtitle;
+  retryBtn.classList.toggle('visible', !!isError);
+  emptyStateEl.classList.add('active');
+  feedContainer.innerHTML = '';
+}
+
+function setView(view) {
+  stopAllAudio();
+  currentView = view;
+  if (view === 'feed') {
+    tabFeed.classList.add('active');
+    tabLiked.classList.remove('active');
+    tracks = feedTracks;
+  } else {
+    tabLiked.classList.add('active');
+    tabFeed.classList.remove('active');
+    tracks = likedTracks;
+  }
+  activeIndex = 0;
+  loadingEl.classList.remove('active');
+  emptyStateEl.classList.remove('active');
+
+  if (tracks.length === 0) {
+    showEmpty(
+      view === 'feed' ? 'Ничего не найдено' : 'Нет избранных треков',
+      view === 'feed' ? 'Попробуйте изменить запрос.' : 'Добавьте треки в избранное, чтобы они появились здесь.',
+      false
+    );
+    return;
+  }
+  renderWindow(true);
+}
+
+async function runSearch(query) {
+  currentQuery = query;
+  loadingEl.classList.add('active');
+  emptyStateEl.classList.remove('active');
+  retryBtn.classList.remove('visible');
+
+  const mySeq = ++requestSeq;
+
+  let newTracks = null;
+  try {
+    newTracks = await fetchTracks();
+  } catch (e) {
+    if (mySeq !== requestSeq) return;
     loadingEl.classList.remove('active');
-    emptyStateEl.classList.remove('active');
+    showEmpty('Ошибка сети', 'Не удалось загрузить треки. Откройте 🐞 для деталей.', true);
+    return;
+  }
 
-    if (tracks.length === 0) {
-      emptyTitle.textContent = view === 'feed' ? 'Ничего не найдено' : 'Нет избранных треков';
-      emptySubtitle.textContent = view === 'feed' ? 'Попробуйте изменить запрос.' : 'Добавьте треки в избранное, чтобы они появились здесь.';
-      emptyStateEl.classList.add('active');
-      feedContainer.innerHTML = '';
-      return;
-    }
+  if (mySeq !== requestSeq) {
+    Debug.warn('runSearch:', 'stale response dropped (seq', mySeq, 'vs', requestSeq + ')');
+    return;
+  }
 
+  feedTracks = newTracks;
+  tracks = feedTracks;
+  activeIndex = 0;
+
+  if (currentView !== 'feed') {
+    currentView = 'feed';
+    tabFeed.classList.add('active');
+    tabLiked.classList.remove('active');
+  }
+  stopAllAudio();
+
+  if (tracks.length === 0) {
+    showEmpty('Ничего не найдено', 'По запросу «' + query + '» ничего не найдено.', true);
+  } else {
     renderWindow(true);
   }
+  loadingEl.classList.remove('active');
+}
 
-  // ----- Единая операция поиска -----
-  async function runSearch(query) {
-    currentQuery = query;
-    loadingEl.classList.add('active');
-    emptyStateEl.classList.remove('active');
+function commitSearch() {
+  const q = searchInput.value.trim();
+  if (q.length < 2) return;
+  runSearch(q);
+}
 
-    const mySeq = ++requestSeq;
-    const newTracks = await fetchTracks();
+/* ---------- UI ---------- */
+searchBtn.addEventListener('click', () => {
+  searchBar.classList.add('active');
+  hudEl.classList.add('searching');
+  setTimeout(() => searchInput.focus(), 100);
+});
+cancelBtn.addEventListener('click', () => {
+  searchInput.blur();
+  searchBar.classList.remove('active');
+  hudEl.classList.remove('searching');
+  searchInput.value = '';
+});
+searchForm.addEventListener('submit', (e) => { e.preventDefault(); commitSearch(); });
+searchSubmit.addEventListener('click', (e) => { e.preventDefault(); commitSearch(); });
+tabFeed.addEventListener('click', () => setView('feed'));
+tabLiked.addEventListener('click', () => setView('liked'));
+retryBtn.addEventListener('click', () => runSearch(currentQuery));
 
-    if (mySeq !== requestSeq) return;
+/* ---------- Swipes ---------- */
+let swipeStartY = 0, swipeCurrentY = 0, isSwiping = false, swipeStartTime = 0;
+const swipeThreshold = 0.1;
+let isMouseDown = false;
 
-    // Если случилась ошибка сети
-    if (newTracks === null) {
-      emptyTitle.textContent = 'Ошибка сети';
-      emptySubtitle.textContent = 'Не удалось загрузить треки. Проверьте интернет и попробуйте снова.';
-      emptyStateEl.classList.add('active');
-      feedContainer.innerHTML = '';
-      loadingEl.classList.remove('active');
-      return;
-    }
+const onSwipeStart = (e) => {
+  const card = feedContainer.querySelector('.track-card[data-position="0"]');
+  if (card && card.dataset.sheetOpen) return;
+  const y = e.touches ? e.touches[0].clientY : e.clientY;
+  swipeStartY = y;
+  swipeCurrentY = 0;
+  isSwiping = true;
+  swipeStartTime = Date.now();
+  feedContainer.style.transition = 'none';
+};
+const onSwipeMove = (e) => {
+  if (!isSwiping) return;
+  const y = e.touches ? e.touches[0].clientY : e.clientY;
+  let d = y - swipeStartY;
+  if ((activeIndex === 0 && d > 0) || (activeIndex === tracks.length - 1 && d < 0)) d *= 0.2;
+  swipeCurrentY = d;
+  feedContainer.style.transform = `translateY(${d}px)`;
+  if (e.cancelable) e.preventDefault();
+};
+const onSwipeEnd = () => {
+  if (!isSwiping) return;
+  isSwiping = false;
+  const timeElapsed = Date.now() - swipeStartTime;
+  const isFastFlick = timeElapsed < 300 && Math.abs(swipeCurrentY) > 20;
+  const threshold = cardHeight * swipeThreshold;
+  const goNext = (swipeCurrentY < -threshold || (isFastFlick && swipeCurrentY < 0)) && activeIndex < tracks.length - 1;
+  const goPrev = (swipeCurrentY > threshold || (isFastFlick && swipeCurrentY > 0)) && activeIndex > 0;
 
-    feedTracks = newTracks;
-    tracks = feedTracks;
-    activeIndex = 0;
-
-    if (currentView !== 'feed') {
-      currentView = 'feed';
-      tabFeed.classList.add('active');
-      tabLiked.classList.remove('active');
-    }
-
-    stopAllAudio();
-
-    // Если треков реально нет
-    if (tracks.length === 0) {
-      emptyTitle.textContent = 'Ничего не найдено';
-      emptySubtitle.textContent = 'По запросу «' + query + '» ничего не найдено. Попробуйте изменить запрос.';
-      emptyStateEl.classList.add('active');
-      feedContainer.innerHTML = '';
-    } else {
-      renderWindow(true);
-    }
-
-    loadingEl.classList.remove('active');
+  if (goNext) {
+    feedContainer.style.transition = 'transform .35s cubic-bezier(0.25, 1, 0.5, 1)';
+    feedContainer.style.transform = `translateY(-100%)`;
+    setTimeout(() => { activeIndex++; renderWindow(true); }, 350);
+  } else if (goPrev) {
+    feedContainer.style.transition = 'transform .35s cubic-bezier(0.25, 1, 0.5, 1)';
+    feedContainer.style.transform = `translateY(100%)`;
+    setTimeout(() => { activeIndex--; renderWindow(true); }, 350);
+  } else {
+    feedContainer.style.transition = 'transform .35s cubic-bezier(0.25, 1, 0.5, 1)';
+    feedContainer.style.transform = `translateY(0)`;
   }
+  swipeCurrentY = 0;
+};
 
-  function commitSearch() {
-    const q = searchInput.value.trim();
-    if (q.length < 2) return;
-    runSearch(q);
+feedContainer.addEventListener('touchstart', onSwipeStart, { passive: true });
+feedContainer.addEventListener('touchmove', onSwipeMove, { passive: false });
+feedContainer.addEventListener('touchend', onSwipeEnd);
+feedContainer.addEventListener('mousedown', (e) => {
+  if (!e.target.closest('a,button')) { isMouseDown = true; onSwipeStart(e); }
+});
+window.addEventListener('mousemove', (e) => { if (isMouseDown) onSwipeMove(e); });
+window.addEventListener('mouseup', () => {
+  if (isMouseDown) { isMouseDown = false; onSwipeEnd(); }
+});
+
+/* ---------- Diagnose (callable from debug panel) ---------- */
+window.__diagnose = async function () {
+  Debug.info('=== DIAGNOSE START ===');
+  const urls = [
+    'https://itunes.apple.com/search?term=test&limit=1',
+    'https://itunes.apple.com/search?term=taylor%20swift&limit=1',
+    'https://itunes.apple.com/search?term=taylor%20swift&media=music&entity=song&limit=1',
+    'https://itunes.apple.com/search?term=taylor%20swift&media=music&entity=song&limit=50&country=us',
+  ];
+  for (const url of urls) {
+    try {
+      const t0 = performance.now();
+      const res = await fetch(url, { cache: 'no-store', credentials: 'omit' });
+      const t1 = performance.now();
+      const text = await res.text();
+      Debug.net('DIAG:', `[${res.status}] ${(t1 - t0).toFixed(0)}ms len=${text.length} | ${url}`);
+      if (text.length < 300) Debug.net('DIAG body:', text);
+    } catch (e) {
+      Debug.error('DIAG:', 'FAILED:', e.name + ' ' + e.message, '|', url);
+    }
   }
+  Debug.info('=== DIAGNOSE END ===');
+};
 
-  // ----- UI -----
-  searchBtn.addEventListener('click', () => {
-    searchBar.classList.add('active');
-    hudEl.classList.add('searching');
-    setTimeout(() => searchInput.focus(), 100);
-  });
+/* ---------- Start ---------- */
+window.addEventListener('DOMContentLoaded', () => {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(regs => {
+      for (const r of regs) r.unregister();
+    });
+  }
+  updateHeight();
+  runSearch(currentQuery);
+});
 
-  cancelBtn.addEventListener('click', () => {
-    searchInput.blur();
-    searchBar.classList.remove('active');
-    hudEl.classList.remove('searching');
-    searchInput.value = '';
-  });
-
-  searchForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    commitSearch();
-  });
-
-  searchSubmit.addEventListener('click', (e) => {
-    e.preventDefault();
-    commitSearch();
-  });
-
-  tabFeed.addEventListener('click', () => setView('feed'));
-  tabLiked.addEventListener('click', () => setView('liked'));
-
-  // ----- Свайпы ленты -----
-  let swipeStartY = 0, swipeCurrentY = 0, isSwiping = false, swipeStartTime = 0;
-  const swipeThreshold = 0.1;
-  let isMouseDown = false;
-
-  const onSwipeStart = (e) => {
-    const card = feedContainer.querySelector('.track-card[data-position="0"]');
-    if (card && card.dataset.sheetOpen) return;
-
-    const y = e.touches ? e.touches[0].clientY : e.clientY;
-    swipeStartY = y;
-    swipeCurrentY = 0;
-    isSwiping = true;
-    swipeStartTime = Date.now();
-    feedContainer.style.transition = 'none';
-  };
-
-  const onSwipeMove = (e) => {
-    if (!isSwiping) return;
-    const y = e.touches ? e.touches[0].clientY : e.clientY;
-    let d = y - swipeStartY;
-    if ((activeIndex === 0 && d > 0) || (activeIndex === tracks.length - 1 && d < 0)) d *= 0.2;
-    swipeCurrentY = d;
-    feedContainer.style.transform = `translateY(${d}px)`;
-    if (e.cancelable) e.preventDefault();
-  };
-
-  const onSwipeEnd = () => {
-    if (!isSwiping) return;
-    isSwiping = false;
-
-    const timeElapsed = Date.now() - swipeStartTime;
-    const isFastFlick = timeElapsed < 300 && Math.abs(swipeCurrentY) > 20;
-    const threshold = cardHeight * swipeThreshold;
-
-    const goNext = (swipeCurrentY < -threshold || (isFastFlick && swipeCurrentY < 0)) && activeIndex < tracks.length - 1;
-    const goPrev = (swipeCurrentY > threshold || (isFastFlick && swipeCurrentY > 0)) && activeIndex > 0;
-
-    if (goNext) {
-      feedContainer.style.transition = 'transform .35s cubic-bezier(0.25, 1, 0.5, 1)';
-      feedContainer.style.transform = `translateY(-100%)`;
-      setTimeout(() => {
-        activeIndex++;
-        renderWindow(true);
-      }, 350);
-    } else if (goPrev) {
-      feedContainer.style.transition = 'transform .35s cubic-bezier(0.25, 1, 0.5, 1)';
-      feedContainer.style.transform = `translateY(100%)`;
-      setTimeout(() => {
-        activeIndex--;
-        renderWindow(true);
-      }, 350);
-    } else {
-      feedContainer.style.transition = 'transform .35s cubic-bezier(0.25, 1, 0.5, 1)';
-      feedContainer.style.transform = `translateY(0)`;
-    }
-    swipeCurrentY = 0;
-  };
-
-  feedContainer.addEventListener('touchstart', onSwipeStart, { passive: true });
-  feedContainer.addEventListener('touchmove', onSwipeMove, { passive: false });
-  feedContainer.addEventListener('touchend', onSwipeEnd);
-
-  feedContainer.addEventListener('mousedown', (e) => {
-    if (!e.target.closest('a,button')) {
-      isMouseDown = true;
-      onSwipeStart(e);
-    }
-  });
-  window.addEventListener('mousemove', (e) => {
-    if (isMouseDown) onSwipeMove(e);
-  });
-  window.addEventListener('mouseup', () => {
-    if (isMouseDown) {
-      isMouseDown = false;
-      onSwipeEnd();
-    }
-  });
-
-  // ----- Старт -----
-  window.addEventListener('DOMContentLoaded', () => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(regs => {
-        for (const r of regs) r.unregister();
-      });
-    }
-
-    updateHeight();
-    // Запускаем поиск стартового запроса
-    runSearch(currentQuery);
-  });
-
-  // ----- Разблокировка аудио по первому жесту -----
-  let audioUnlocked = false;
-  const unlockAudio = () => {
-    if (audioUnlocked) return;
-    audioUnlocked = true;
-    const mainCard = feedContainer.querySelector('.track-card[data-position="0"]');
-    if (mainCard && mainCard.play && (!currentAudio || currentAudio.paused)) {
-      mainCard.play();
-    }
-    document.removeEventListener('touchstart', unlockAudio);
-    document.removeEventListener('mousedown', unlockAudio);
-  };
-  document.addEventListener('touchstart', unlockAudio, { passive: true });
-  document.addEventListener('mousedown', unlockAudio);
+/* ---------- Audio unlock ---------- */
+let audioUnlocked = false;
+const unlockAudio = () => {
+  if (audioUnlocked) return;
+  audioUnlocked = true;
+  const mainCard = feedContainer.querySelector('.track-card[data-position="0"]');
+  if (mainCard && mainCard.play && (!currentAudio || currentAudio.paused)) {
+    mainCard.play();
+  }
+  document.removeEventListener('touchstart', unlockAudio);
+  document.removeEventListener('mousedown', unlockAudio);
+};
+document.addEventListener('touchstart', unlockAudio, { passive: true });
+document.addEventListener('mousedown', unlockAudio);
 </script>
 </body>
 </html>
